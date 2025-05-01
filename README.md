@@ -60,7 +60,7 @@ Reemplaza `tu_cadena_de_conexion_de_mongodb` y `tu_nombre_de_base_de_datos` con 
 ### Iniciar el servidor de desarrollo
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 El servidor se iniciará en `http://localhost:8000`
