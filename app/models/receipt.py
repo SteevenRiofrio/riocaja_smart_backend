@@ -16,6 +16,7 @@ class ReceiptModel(BaseModel):
     tipoCuenta: str = Field("", alias="tipo_cuenta")
     valorTotal: float = Field(..., alias="valor_total")
     fullText: str = Field("", alias="full_text")
+    userId: Optional[str] = Field(None, alias="user_id")  # ID del usuario que creó el comprobante
 
     class Config:
         validate_by_name = True  # Antiguo allow_population_by_field_name

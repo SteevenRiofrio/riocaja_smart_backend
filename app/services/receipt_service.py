@@ -23,19 +23,57 @@ class ReceiptService:
             logger.error(f"Error al conectar a MongoDB: {e}")
             raise
     
-    async def get_all_receipts(self) -> List[dict]:
+    async def get_all_receipts(self, user_id: Optional[str] = None) -> List[dict]:
+        """
+        Obtiene todos los comprobantes, opcionalmente filtrados por usuario.
+        
+        Args:
+            user_id: ID del usuario para filtrar los comprobantes
+            
+        Returns:
+            Lista de comprobantes encontrados
+        """
         try:
-            receipts = list(self.receipts.find().sort("created_at", -1))
+            # Crear filtro basado en user_id si se proporciona
+            filter_query = {}
+            if user_id:
+                filter_query["user_id"] = user_id
+                logger.info(f"Filtrando comprobantes para el usuario: {user_id}")
+            
+            receipts = list(self.receipts.find(filter_query).sort("created_at", -1))
+            
             for receipt in receipts:
                 receipt["_id"] = str(receipt["_id"])
+            
+            logger.info(f"Se encontraron {len(receipts)} comprobantes{' para el usuario: ' + user_id if user_id else ''}")
             return receipts
         except Exception as e:
             logger.error(f"Error al obtener comprobantes: {e}")
             return []
     
-    async def get_receipts_by_date(self, date_str: str) -> List[dict]:
+    async def get_receipts_by_date(self, date_str: str, user_id: Optional[str] = None) -> List[dict]:
+        """
+        Obtiene comprobantes por fecha, opcionalmente filtrados por usuario.
+        
+        Args:
+            date_str: Fecha en formato dd/mm/aaaa
+            user_id: ID del usuario para filtrar los comprobantes
+            
+        Returns:
+            Lista de comprobantes encontrados
+        """
         try:
-            receipts = list(self.receipts.find({"fecha": date_str}).sort("created_at", -1))
+            logger.info(f"Buscando comprobantes para la fecha: {date_str}{' y usuario: ' + user_id if user_id else ''}")
+            
+            # Crear filtro con fecha y, opcionalmente, user_id
+            filter_query = {"fecha": date_str}
+            if user_id:
+                filter_query["user_id"] = user_id
+            
+            receipts = list(self.receipts.find(filter_query).sort("created_at", -1))
+            
+            logger.info(f"Se encontraron {len(receipts)} comprobantes para la fecha {date_str}{' y usuario: ' + user_id if user_id else ''}")
+            
             for receipt in receipts:
                 receipt["_id"] = str(receipt["_id"])
             return receipts
@@ -43,10 +81,25 @@ class ReceiptService:
             logger.error(f"Error al obtener comprobantes por fecha: {e}")
             return []
     
-    async def create_receipt(self, receipt: ReceiptModel) -> dict:
+    async def create_receipt(self, receipt: ReceiptModel, user_id: Optional[str] = None) -> dict:
+        """
+        Crea un nuevo comprobante, asociándolo a un usuario si se proporciona.
+        
+        Args:
+            receipt: Modelo del comprobante a crear
+            user_id: ID del usuario que crea el comprobante
+            
+        Returns:
+            Comprobante creado
+        """
         try:
             receipt_dict = receipt.dict(by_alias=True)
             receipt_dict["created_at"] = datetime.now()
+            
+            # Asignar user_id si se proporciona
+            if user_id:
+                receipt_dict["user_id"] = user_id
+                logger.info(f"Asignando comprobante al usuario: {user_id}")
             
             logger.info(f"Guardando comprobante: {receipt_dict.get('nro_transaccion')}")
             
@@ -65,31 +118,59 @@ class ReceiptService:
             raise
     
     # Método para buscar recibo por número de transacción
-    async def get_receipt_by_transaction(self, transaction_number: str) -> Optional[dict]:
-        try:
-            logger.info(f"Buscando comprobante con número de transacción: '{transaction_number}'")
+    async def get_receipt_by_transaction(self, transaction_number: str, user_id: Optional[str] = None) -> Optional[dict]:
+        """
+        Busca un comprobante por número de transacción, opcionalmente filtrado por usuario.
+        
+        Args:
+            transaction_number: Número de transacción a buscar
+            user_id: ID del usuario para filtrar los comprobantes
             
-            # Buscar por el campo nro_transaccion
-            receipt = self.receipts.find_one({"nro_transaccion": transaction_number})
+        Returns:
+            Comprobante encontrado o None
+        """
+        try:
+            logger.info(f"Buscando comprobante con número de transacción: '{transaction_number}'{' para usuario: ' + user_id if user_id else ''}")
+            
+            # Crear filtro con nro_transaccion y, opcionalmente, user_id
+            filter_query = {"nro_transaccion": transaction_number}
+            if user_id:
+                filter_query["user_id"] = user_id
+            
+            receipt = self.receipts.find_one(filter_query)
             
             if receipt:
                 logger.info(f"Comprobante encontrado: {receipt.get('_id')}")
                 receipt["_id"] = str(receipt["_id"])
                 return receipt
             else:
-                logger.info(f"No se encontró ningún comprobante con transacción: {transaction_number}")
+                logger.info(f"No se encontró ningún comprobante con transacción: {transaction_number}{' para usuario: ' + user_id if user_id else ''}")
                 return None
         except Exception as e:
             logger.error(f"Error al buscar comprobante: {e}")
             return None
     
     # Método para eliminar recibo
-    async def delete_receipt(self, transaction_number: str) -> bool:
-        try:
-            logger.info(f"Intentando eliminar comprobante con transacción: '{transaction_number}'")
+    async def delete_receipt(self, transaction_number: str, user_id: Optional[str] = None) -> bool:
+        """
+        Elimina un comprobante por número de transacción, opcionalmente filtrado por usuario.
+        
+        Args:
+            transaction_number: Número de transacción a eliminar
+            user_id: ID del usuario para filtrar los comprobantes
             
-            # Buscar y eliminar por número de transacción
-            result = self.receipts.delete_one({"nro_transaccion": transaction_number})
+        Returns:
+            True si se eliminó correctamente, False en caso contrario
+        """
+        try:
+            logger.info(f"Intentando eliminar comprobante con transacción: '{transaction_number}'{' para usuario: ' + user_id if user_id else ''}")
+            
+            # Crear filtro con nro_transaccion y, opcionalmente, user_id
+            filter_query = {"nro_transaccion": transaction_number}
+            if user_id:
+                filter_query["user_id"] = user_id
+            
+            result = self.receipts.delete_one(filter_query)
             
             success = result.deleted_count > 0
             logger.info(f"Resultado de eliminación: {success} (deleted_count: {result.deleted_count})")
@@ -98,17 +179,30 @@ class ReceiptService:
             logger.error(f"Error al eliminar comprobante: {e}")
             return False
     
-    async def generate_closing_report(self, date_str: str) -> dict:
+    async def generate_closing_report(self, date_str: str, user_id: Optional[str] = None) -> dict:
+        """
+        Genera un reporte de cierre para una fecha específica, opcionalmente filtrado por usuario.
+        
+        Args:
+            date_str: Fecha en formato dd/mm/aaaa
+            user_id: ID del usuario para filtrar los comprobantes
+            
+        Returns:
+            Diccionario con el reporte generado
+        """
         try:
-            receipts = await self.get_receipts_by_date(date_str)
+            logger.info(f"Generando reporte para la fecha: {date_str}{' y usuario: ' + user_id if user_id else ''}")
+            
+            receipts = await self.get_receipts_by_date(date_str, user_id)
             
             if not receipts:
-                logger.info(f"No hay comprobantes para la fecha {date_str}")
+                logger.info(f"No hay comprobantes para la fecha {date_str}{' y usuario: ' + user_id if user_id else ''}")
                 return {
                     "summary": {},
                     "total": 0.0,
                     "date": date_str,
                     "count": 0,
+                    "user_id": user_id if user_id else None
                 }
             
             # Calcular total
@@ -123,12 +217,13 @@ class ReceiptService:
                 else:
                     summary[tipo] = receipt.get("valor_total", 0)
             
-            logger.info(f"Reporte generado para {date_str}: {len(receipts)} comprobantes, total: {total}")
+            logger.info(f"Reporte generado para {date_str}{' y usuario: ' + user_id if user_id else ''}: {len(receipts)} comprobantes, total: {total}")
             return {
                 "summary": summary,
                 "total": total,
                 "date": date_str,
                 "count": len(receipts),
+                "user_id": user_id if user_id else None
             }
         except Exception as e:
             logger.error(f"Error al generar reporte de cierre: {e}")
@@ -137,5 +232,6 @@ class ReceiptService:
                 "total": 0.0,
                 "date": date_str,
                 "count": 0,
-                "error": str(e)
+                "error": str(e),
+                "user_id": user_id if user_id else None
             }
