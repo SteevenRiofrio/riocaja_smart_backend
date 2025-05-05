@@ -14,6 +14,7 @@ receipt_service = ReceiptService()
 async def get_receipts(user=Depends(get_current_user)):  # ← ahora requiere token JWT
     receipts = await receipt_service.get_all_receipts()
     return {"data": receipts, "count": len(receipts)}
+
 # Get receipts by date
 @router.get("/date/{date}", response_description="Get receipts by date")
 async def get_receipts_by_date(date: str):
