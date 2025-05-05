@@ -18,4 +18,4 @@ class ReceiptModel(BaseModel):
     fullText: str = Field("", alias="full_text")
 
     class Config:
-        allow_population_by_field_name = True
+        validate_by_name = True  # Antiguo allow_population_by_field_name
