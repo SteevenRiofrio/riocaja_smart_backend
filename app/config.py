@@ -10,3 +10,5 @@ DATABASE_NAME = "riocaja_smart"
 
 # Configuración de la API
 API_PREFIX = "/api/v1"
+SECRET_KEY = "tu-clave-super-secreta"
+ALGORITHM = "HS256"

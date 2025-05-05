@@ -3,16 +3,17 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Depends
 from app.models.receipt import ReceiptModel
 from app.services.receipt_service import ReceiptService
+from app.middlewares.auth_middleware import get_current_user, role_required
+
 
 router = APIRouter()
 receipt_service = ReceiptService()
 
 # Get all receipts
 @router.get("/", response_description="List all receipts")
-async def get_receipts():
+async def get_receipts(user=Depends(get_current_user)):  # ← ahora requiere token JWT
     receipts = await receipt_service.get_all_receipts()
     return {"data": receipts, "count": len(receipts)}
-
 # Get receipts by date
 @router.get("/date/{date}", response_description="Get receipts by date")
 async def get_receipts_by_date(date: str):
