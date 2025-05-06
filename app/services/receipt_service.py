@@ -56,7 +56,7 @@ class ReceiptService:
         Obtiene comprobantes por fecha, opcionalmente filtrados por usuario.
         
         Args:
-            date_str: Fecha en formato dd/mm/aaaa
+            date_str: Fecha en formato dd-mm-aaaa
             user_id: ID del usuario para filtrar los comprobantes
             
         Returns:
