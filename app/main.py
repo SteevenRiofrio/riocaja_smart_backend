@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import receipts
 from app.config import API_PREFIX
-from app.routes import receipts, auth  # Importa el nuevo router
+from app.routes import receipts, auth, messages  # Importa el nuevo router
 
 
 # Crear la aplicación FastAPI
@@ -36,6 +36,12 @@ app.include_router(
     auth.router,  # Añade las rutas de autenticación
     prefix=f"{API_PREFIX}/auth",
     tags=["auth"],
+)
+
+app.include_router(
+    messages.router,  # Añade las rutas de mensajes
+    prefix=f"{API_PREFIX}/messages",
+    tags=["messages"],
 )
 
 @app.get("/", tags=["root"])
