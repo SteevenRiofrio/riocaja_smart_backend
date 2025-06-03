@@ -12,3 +12,6 @@ DATABASE_NAME = "riocaja_smart"
 API_PREFIX = "/api/v1"
 SECRET_KEY = "tu-clave-super-secreta"
 ALGORITHM = "HS256"
+
+# AGREGAR ESTA LÍNEA FALTANTE:
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 horas
