@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr
+# -*- coding: utf-8 -*-
+# app/models/user.py
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 from enum import Enum
@@ -9,37 +11,33 @@ class Estado(str, Enum):
     inactivo = "inactivo"
 
 class Rol(str, Enum):
-    lector = "lector"
-    operador = "operador"
     admin = "admin"
+    operador = "operador"
+    lector = "lector"
 
 class User(BaseModel):
     nombre: str
     email: EmailStr
     password_hash: str
     rol: str = "lector"
-    estado: Estado = Estado.pendiente
-    fecha_registro: datetime = datetime.utcnow()
-    intentos_fallidos: int = 0
+    estado: str = "pendiente"
+    fecha_registro: datetime = Field(default_factory=datetime.utcnow)
+    perfil_completo: bool = False
     
-    # NUEVOS CAMPOS PARA CORRESPONSAL
-    codigo_corresponsal: Optional[str] = None  # Asignado por admin al aprobar
-    nombre_local: Optional[str] = None         # Completado por usuario
-    perfil_completo: bool = False              # Indica si completo el perfil inicial
-    
-    # Campos de auditoria
+    # Campos opcionales
+    nombre_local: Optional[str] = None
+    codigo_corresponsal: Optional[str] = None
     aprobado_por: Optional[str] = None
     fecha_aprobacion: Optional[datetime] = None
     fecha_perfil_completado: Optional[datetime] = None
+    intentos_fallidos: int = 0
 
 class UserProfile(BaseModel):
-    """Modelo para completar perfil de usuario"""
     codigo_corresponsal: str
     nombre_local: str
     nombre_completo: str
-    password: str  # Nueva contraseña
+    password: str = Field(min_length=8)
 
 class UserApprovalWithCode(BaseModel):
-    """Modelo para aprobacion con codigo de corresponsal"""
     user_id: str
     codigo_corresponsal: str
