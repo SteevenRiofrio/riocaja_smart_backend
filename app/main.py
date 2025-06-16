@@ -1,13 +1,10 @@
-# app/main.py
 import dns.resolver
 dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
 dns.resolver.default_resolver.nameservers = ['8.8.8.8', '8.8.4.4']  # Google DNS
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import receipts
+from app.routes import receipts, auth, messages, password_reset  # NUEVA IMPORTACIÓN
 from app.config import API_PREFIX
-from app.routes import receipts, auth, messages  # Importa el nuevo router
-
 
 # Crear la aplicación FastAPI
 app = FastAPI(
@@ -25,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Incluir rutas
+# Incluir rutas existentes
 app.include_router(
     receipts.router,
     prefix=f"{API_PREFIX}/receipts",
@@ -33,15 +30,22 @@ app.include_router(
 )
 
 app.include_router(
-    auth.router,  # Añade las rutas de autenticación
+    auth.router,
     prefix=f"{API_PREFIX}/auth",
     tags=["auth"],
 )
 
 app.include_router(
-    messages.router,  # Añade las rutas de mensajes
+    messages.router,
     prefix=f"{API_PREFIX}/messages",
     tags=["messages"],
+)
+
+# NUEVA RUTA: Recuperación de contraseña
+app.include_router(
+    password_reset.router,
+    prefix=f"{API_PREFIX}/auth",  # Mismo prefijo que auth
+    tags=["password-reset"],
 )
 
 @app.get("/", tags=["root"])
