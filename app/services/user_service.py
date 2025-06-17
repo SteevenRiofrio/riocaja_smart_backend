@@ -1,326 +1,452 @@
-# -*- coding: utf-8 -*-
-# app/services/user_service.py - CODIGO COMPLETO CORREGIDO
-import logging
-from typing import Optional, List
-from pymongo import MongoClient, DESCENDING
-from bson import ObjectId
-from datetime import datetime
-from app.config import MONGO_URI, DATABASE_NAME
-from app.models.user import User, Estado, Rol
-from app.services.crypto_service import hash_password, verify_password
+# app/services/user_service.py - MÉTODOS ADICIONALES PARA GESTIÓN COMPLETA
+# Agregar estos métodos al UserService existente
 
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-class UserService:
-    def __init__(self):
+    # NUEVO: Obtener todos los usuarios
+    def get_all_users(self) -> List[dict]:
+        """Obtiene todos los usuarios del sistema (excepto passwords)"""
         try:
-            logger.info("Conectando a MongoDB para usuarios...")
-            self.client = MongoClient(MONGO_URI)
-            self.db = self.client[DATABASE_NAME]
-            self.users = self.db["users"]
-            logger.info(f"Conexion exitosa a la base de datos: {DATABASE_NAME}")
+            # Proyección para excluir campos sensibles
+            projection = {
+                "password_hash": 0,  # No devolver el hash de contraseña
+                "intentos_fallidos": 0  # Campo interno
+            }
+            
+            users = list(self.users.find({}, projection).sort("fecha_registro", DESCENDING))
+            
+            # Convertir ObjectId a string
+            for user in users:
+                user["_id"] = str(user["_id"])
+                if user.get("aprobado_por"):
+                    user["aprobado_por"] = str(user["aprobado_por"])
+            
+            logger.info(f"Se obtuvieron {len(users)} usuarios en total")
+            return users
+            
         except Exception as e:
-            logger.error(f"Error al conectar a MongoDB: {e}")
-            raise
-
-    def register_user(self, nombre: str, email: str, password: str, rol: str = "lector") -> dict:
-        """Registra un nuevo usuario en estado pendiente"""
-        if self.users.find_one({"email": email}):
-            raise ValueError("Email ya registrado")
-
-        if len(password) < 8:
-            raise ValueError("Contraseña debe tener minimo 8 caracteres")
-
-        hashed_pw = hash_password(password)
-        user = User(
-            nombre=nombre,
-            email=email,
-            password_hash=hashed_pw,
-            rol=rol,
-            estado=Estado.pendiente,
-            perfil_completo=False  # Iniciar con perfil incompleto
-        )
-        user_dict = user.dict()
-        result = self.users.insert_one(user_dict)
-        logger.info(f"Usuario registrado con email: {email}, estado: pendiente")
-        return {
-            "msg": "Usuario registrado. Un administrador revisara su solicitud.",
-            "id": str(result.inserted_id)
-        }
+            logger.error(f"Error al obtener todos los usuarios: {e}")
+            return []
     
-    def authenticate_user(self, email: str, password: str) -> Optional[dict]:
-        """Autentica un usuario y devuelve sus datos si es valido"""
-        user_db = self.users.find_one({"email": email})
-        if not user_db:
-            return None
-
-        if user_db.get("estado") == "pendiente":
-            logger.info(f"Intento de inicio de sesion de usuario pendiente: {email}")
-            return None
-            
-        if user_db.get("estado") == "inactivo":
-            logger.info(f"Intento de inicio de sesion de usuario inactivo: {email}")
-            return None
-
-        if not verify_password(password, user_db["password_hash"]):
-            self.users.update_one({"email": email}, {"$inc": {"intentos_fallidos": 1}})
-            return None
-
-        # Reiniciar intentos fallidos tras inicio de sesion exitoso
-        self.users.update_one({"email": email}, {"$set": {"intentos_fallidos": 0}})
-        
-        user_db["_id"] = str(user_db["_id"])
-        return user_db
-    
-    def complete_user_profile(self, user_id: str, codigo_corresponsal: str, 
-                            nombre_local: str, nombre_completo: str, nueva_password: str) -> bool:
-        """Completa el perfil del usuario verificando el codigo de corresponsal"""
+    # NUEVO: Cambiar estado del usuario
+    def change_user_state(self, user_id: str, new_state: str) -> bool:
+        """Cambia el estado de un usuario"""
         try:
-            # Verificar que el usuario existe y tiene el codigo correcto
-            user = self.users.find_one({
-                "_id": ObjectId(user_id),
-                "codigo_corresponsal": codigo_corresponsal,
-                "estado": "activo"
-            })
-            
-            if not user:
-                logger.warning(f"Usuario {user_id} no encontrado o codigo incorrecto")
-                return False
-            
-            # Validar datos
-            if len(nueva_password) < 8:
-                raise ValueError("La nueva contraseña debe tener al menos 8 caracteres")
-            
-            if not nombre_local.strip():
-                raise ValueError("El nombre del local es requerido")
-            
-            if not nombre_completo.strip():
-                raise ValueError("El nombre completo es requerido")
-            
-            # Actualizar usuario con nueva informacion
-            hashed_pw = hash_password(nueva_password)
+            # Validar estado
+            valid_states = ["activo", "pendiente", "suspendido", "inactivo"]
+            if new_state not in valid_states:
+                raise ValueError(f"Estado inválido: {new_state}")
             
             result = self.users.update_one(
                 {"_id": ObjectId(user_id)},
                 {
                     "$set": {
-                        "nombre_local": nombre_local.strip(),
-                        "nombre": nombre_completo.strip(),  # Actualizar nombre completo
-                        "password_hash": hashed_pw,         # Nueva contraseña
-                        "perfil_completo": True,            # Marcar como completado
-                        "fecha_perfil_completado": datetime.utcnow()
+                        "estado": new_state,
+                        "fecha_cambio_estado": datetime.utcnow()
                     }
                 }
             )
             
             success = result.modified_count > 0
             if success:
-                logger.info(f"Perfil completado para usuario {user_id}")
+                logger.info(f"Estado del usuario {user_id} cambiado a: {new_state}")
             
             return success
             
         except Exception as e:
-            logger.error(f"Error al completar perfil: {e}")
+            logger.error(f"Error al cambiar estado del usuario: {e}")
             return False
     
-    def verify_corresponsal_code(self, user_id: str, codigo: str) -> bool:
-        """Verifica si el codigo de corresponsal es valido para el usuario"""
+    # NUEVO: Buscar usuarios
+    def search_users(self, search_term: str) -> List[dict]:
+        """Busca usuarios por nombre, email, código de corresponsal, etc."""
         try:
-            user = self.users.find_one({
-                "_id": ObjectId(user_id),
-                "codigo_corresponsal": codigo,
-                "estado": "activo"
-            })
-            return user is not None
-        except Exception as e:
-            logger.error(f"Error al verificar codigo: {e}")
-            return False
-    
-    def approve_user_with_code(self, user_id: str, admin_id: str, codigo_corresponsal: str) -> bool:
-        """Aprueba un usuario y le asigna un codigo de corresponsal"""
-        try:
-            # Verificar que el codigo no este ya en uso
-            existing_code = self.users.find_one({"codigo_corresponsal": codigo_corresponsal})
-            if existing_code:
-                raise ValueError("El codigo de corresponsal ya esta en uso")
+            # Crear consulta de búsqueda con regex case-insensitive
+            search_regex = {"$regex": search_term, "$options": "i"}
             
-            # Validar formato del codigo
-            if not codigo_corresponsal.strip() or len(codigo_corresponsal.strip()) < 3:
-                raise ValueError("El codigo de corresponsal debe tener al menos 3 caracteres")
-            
-            # Obtener el usuario para verificar su rol
-            user_to_approve = self.users.find_one({"_id": ObjectId(user_id), "estado": "pendiente"})
-            if not user_to_approve:
-                raise ValueError("Usuario no encontrado o ya procesado")
-            
-            # Determinar si necesita completar perfil basado en el rol
-            user_role = user_to_approve.get("rol", "lector")
-            perfil_completo = user_role in ["admin", "operador"]  # Admin y operador no necesitan completar perfil
-            
-            result = self.users.update_one(
-                {"_id": ObjectId(user_id), "estado": "pendiente"},
-                {
-                    "$set": {
-                        "estado": "activo",
-                        "codigo_corresponsal": codigo_corresponsal.strip().upper(),
-                        "aprobado_por": admin_id,
-                        "fecha_aprobacion": datetime.utcnow(),
-                        "perfil_completo": perfil_completo  # True para admin/operador, False para lector
-                    }
-                }
-            )
-            
-            success = result.modified_count > 0
-            if success:
-                logger.info(f"Usuario {user_id} aprobado con codigo: {codigo_corresponsal}, rol: {user_role}, perfil_completo: {perfil_completo}")
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error al aprobar usuario con codigo: {e}")
-            raise ValueError(str(e))
-    
-    def get_pending_users(self) -> List[dict]:
-        """Obtiene todos los usuarios en estado pendiente"""
-        users = list(self.users.find({"estado": "pendiente"}).sort("fecha_registro", DESCENDING))
-        for user in users:
-            user["_id"] = str(user["_id"])
-        return users
-    
-    def approve_user(self, user_id: str, admin_id: str) -> bool:
-        """Aprueba un usuario pendiente (metodo legacy sin codigo)"""
-        try:
-            # Obtener el usuario para verificar su rol
-            user_to_approve = self.users.find_one({"_id": ObjectId(user_id), "estado": "pendiente"})
-            if not user_to_approve:
-                return False
-            
-            # Determinar si necesita completar perfil basado en el rol
-            user_role = user_to_approve.get("rol", "lector")
-            perfil_completo = user_role in ["admin", "operador"]
-            
-            result = self.users.update_one(
-                {"_id": ObjectId(user_id), "estado": "pendiente"},
-                {
-                    "$set": {
-                        "estado": "activo", 
-                        "aprobado_por": admin_id,
-                        "fecha_aprobacion": datetime.utcnow(),
-                        "perfil_completo": perfil_completo
-                    }
-                }
-            )
-            
-            success = result.modified_count > 0
-            if success:
-                logger.info(f"Usuario {user_id} aprobado (metodo legacy), rol: {user_role}, perfil_completo: {perfil_completo}")
-            
-            return success
-        except Exception as e:
-            logger.error(f"Error al aprobar usuario: {e}")
-            return False
-    
-    def reject_user(self, user_id: str) -> bool:
-        """Rechaza un usuario pendiente"""
-        result = self.users.update_one(
-            {"_id": ObjectId(user_id), "estado": "pendiente"},
-            {"$set": {"estado": "inactivo"}}
-        )
-        return result.modified_count > 0
-        
-    def change_user_role(self, user_id: str, new_role: str) -> bool:
-        """Cambia el rol de un usuario"""
-        if new_role not in [r.value for r in Rol]:
-            raise ValueError(f"Rol invalido: {new_role}")
-        
-        # Si el nuevo rol es admin/operador, marcar perfil como completo
-        perfil_completo = new_role in ["admin", "operador"]
-        
-        result = self.users.update_one(
-            {"_id": ObjectId(user_id)},
-            {
-                "$set": {
-                    "rol": new_role,
-                    "perfil_completo": perfil_completo
-                }
+            query = {
+                "$or": [
+                    {"nombre": search_regex},
+                    {"email": search_regex},
+                    {"codigo_corresponsal": search_regex},
+                    {"nombre_local": search_regex}
+                ]
             }
-        )
-        return result.modified_count > 0
+            
+            # Proyección para excluir campos sensibles
+            projection = {
+                "password_hash": 0,
+                "intentos_fallidos": 0
+            }
+            
+            users = list(self.users.find(query, projection).sort("nombre", 1))
+            
+            # Convertir ObjectId a string
+            for user in users:
+                user["_id"] = str(user["_id"])
+                if user.get("aprobado_por"):
+                    user["aprobado_por"] = str(user["aprobado_por"])
+            
+            logger.info(f"Búsqueda '{search_term}': {len(users)} usuarios encontrados")
+            return users
+            
+        except Exception as e:
+            logger.error(f"Error en búsqueda de usuarios: {e}")
+            return []
     
-    def get_user_info(self, user_id: str) -> Optional[dict]:
-        """Obtiene informacion completa del usuario"""
+    # NUEVO: Obtener estadísticas de usuarios
+    def get_user_statistics(self) -> dict:
+        """Obtiene estadísticas generales de usuarios"""
+        try:
+            # Contar por estado
+            stats_by_state = list(self.users.aggregate([
+                {"$group": {"_id": "$estado", "count": {"$sum": 1}}}
+            ]))
+            
+            # Contar por rol
+            stats_by_role = list(self.users.aggregate([
+                {"$group": {"_id": "$rol", "count": {"$sum": 1}}}
+            ]))
+            
+            # Total de usuarios
+            total_users = self.users.count_documents({})
+            
+            # Usuarios con perfil completo
+            complete_profiles = self.users.count_documents({"perfil_completo": True})
+            
+            # Usuarios registrados hoy
+            today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            users_today = self.users.count_documents({
+                "fecha_registro": {"$gte": today_start}
+            })
+            
+            # Usuarios registrados esta semana
+            week_start = today_start - timedelta(days=7)
+            users_this_week = self.users.count_documents({
+                "fecha_registro": {"$gte": week_start}
+            })
+            
+            # Formatear estadísticas por estado
+            state_stats = {}
+            for stat in stats_by_state:
+                state_stats[stat["_id"]] = stat["count"]
+            
+            # Formatear estadísticas por rol
+            role_stats = {}
+            for stat in stats_by_role:
+                role_stats[stat["_id"]] = stat["count"]
+            
+            result = {
+                "total_usuarios": total_users,
+                "perfiles_completos": complete_profiles,
+                "usuarios_hoy": users_today,
+                "usuarios_esta_semana": users_this_week,
+                "por_estado": state_stats,
+                "por_rol": role_stats,
+                "porcentaje_perfiles_completos": round((complete_profiles / total_users * 100) if total_users > 0 else 0, 2)
+            }
+            
+            logger.info(f"Estadísticas generadas: {total_users} usuarios totales")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error al obtener estadísticas: {e}")
+            return {
+                "total_usuarios": 0,
+                "perfiles_completos": 0,
+                "usuarios_hoy": 0,
+                "usuarios_esta_semana": 0,
+                "por_estado": {},
+                "por_rol": {},
+                "porcentaje_perfiles_completos": 0
+            }
+    
+    # NUEVO: Obtener usuarios por estado
+    def get_users_by_state(self, state: str) -> List[dict]:
+        """Obtiene usuarios filtrados por estado específico"""
+        try:
+            projection = {
+                "password_hash": 0,
+                "intentos_fallidos": 0
+            }
+            
+            users = list(self.users.find({"estado": state}, projection).sort("fecha_registro", DESCENDING))
+            
+            for user in users:
+                user["_id"] = str(user["_id"])
+                if user.get("aprobado_por"):
+                    user["aprobado_por"] = str(user["aprobado_por"])
+            
+            logger.info(f"Usuarios con estado '{state}': {len(users)}")
+            return users
+            
+        except Exception as e:
+            logger.error(f"Error al obtener usuarios por estado: {e}")
+            return []
+    
+    # NUEVO: Obtener usuarios por rol
+    def get_users_by_role(self, role: str) -> List[dict]:
+        """Obtiene usuarios filtrados por rol específico"""
+        try:
+            projection = {
+                "password_hash": 0,
+                "intentos_fallidos": 0
+            }
+            
+            users = list(self.users.find({"rol": role}, projection).sort("nombre", 1))
+            
+            for user in users:
+                user["_id"] = str(user["_id"])
+                if user.get("aprobado_por"):
+                    user["aprobado_por"] = str(user["aprobado_por"])
+            
+            logger.info(f"Usuarios con rol '{role}': {len(users)}")
+            return users
+            
+        except Exception as e:
+            logger.error(f"Error al obtener usuarios por rol: {e}")
+            return []
+    
+    # NUEVO: Obtener actividad reciente de usuarios
+    def get_recent_user_activity(self, days: int = 7) -> List[dict]:
+        """Obtiene actividad reciente de usuarios en los últimos N días"""
+        try:
+            start_date = datetime.utcnow() - timedelta(days=days)
+            
+            # Usuarios registrados recientemente
+            recent_registrations = list(self.users.find({
+                "fecha_registro": {"$gte": start_date}
+            }, {
+                "password_hash": 0,
+                "intentos_fallidos": 0
+            }).sort("fecha_registro", DESCENDING))
+            
+            # Usuarios aprobados recientemente
+            recent_approvals = list(self.users.find({
+                "fecha_aprobacion": {"$gte": start_date}
+            }, {
+                "password_hash": 0,
+                "intentos_fallidos": 0
+            }).sort("fecha_aprobacion", DESCENDING))
+            
+            # Perfiles completados recientemente
+            recent_profiles = list(self.users.find({
+                "fecha_perfil_completado": {"$gte": start_date}
+            }, {
+                "password_hash": 0,
+                "intentos_fallidos": 0
+            }).sort("fecha_perfil_completado", DESCENDING))
+            
+            # Convertir ObjectIds
+            for user_list in [recent_registrations, recent_approvals, recent_profiles]:
+                for user in user_list:
+                    user["_id"] = str(user["_id"])
+                    if user.get("aprobado_por"):
+                        user["aprobado_por"] = str(user["aprobado_por"])
+            
+            result = {
+                "registros_recientes": recent_registrations,
+                "aprobaciones_recientes": recent_approvals,
+                "perfiles_completados": recent_profiles,
+                "periodo_dias": days
+            }
+            
+            logger.info(f"Actividad reciente de {days} días obtenida")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error al obtener actividad reciente: {e}")
+            return {
+                "registros_recientes": [],
+                "aprobaciones_recientes": [],
+                "perfiles_completados": [],
+                "periodo_dias": days
+            }
+    
+    # NUEVO: Validar integridad de datos de usuario
+    def validate_user_data_integrity(self, user_id: str) -> dict:
+        """Valida la integridad de los datos de un usuario"""
         try:
             user = self.users.find_one({"_id": ObjectId(user_id)})
-            if user:
-                user["_id"] = str(user["_id"])
-                # No devolver el hash de la contraseña
-                user.pop("password_hash", None)
-            return user
+            if not user:
+                return {"valid": False, "errors": ["Usuario no encontrado"]}
+            
+            errors = []
+            warnings = []
+            
+            # Validaciones obligatorias
+            if not user.get("nombre"):
+                errors.append("Falta el nombre del usuario")
+            
+            if not user.get("email"):
+                errors.append("Falta el email del usuario")
+            
+            if not user.get("password_hash"):
+                errors.append("Falta el hash de contraseña")
+            
+            if not user.get("rol"):
+                errors.append("Falta el rol del usuario")
+            
+            if not user.get("estado"):
+                errors.append("Falta el estado del usuario")
+            
+            # Validaciones de consistencia
+            if user.get("estado") == "activo" and not user.get("fecha_aprobacion"):
+                warnings.append("Usuario activo sin fecha de aprobación")
+            
+            if user.get("perfil_completo") and not user.get("fecha_perfil_completado"):
+                warnings.append("Perfil marcado como completo sin fecha de completado")
+            
+            if user.get("rol") in ["admin", "operador"] and not user.get("perfil_completo"):
+                warnings.append("Admin/Operador debería tener perfil completo")
+            
+            # Validaciones específicas por rol
+            if user.get("rol") == "lector":
+                if user.get("estado") == "activo" and not user.get("codigo_corresponsal"):
+                    warnings.append("Lector activo sin código de corresponsal")
+                
+                if user.get("perfil_completo") and not user.get("nombre_local"):
+                    warnings.append("Perfil completo sin nombre de local")
+            
+            result = {
+                "valid": len(errors) == 0,
+                "errors": errors,
+                "warnings": warnings,
+                "user_id": user_id,
+                "checked_at": datetime.utcnow().isoformat()
+            }
+            
+            logger.info(f"Validación de integridad para usuario {user_id}: {'válido' if result['valid'] else 'inválido'}")
+            return result
+            
         except Exception as e:
-            logger.error(f"Error al obtener informacion del usuario: {e}")
-            return None
+            logger.error(f"Error en validación de integridad: {e}")
+            return {
+                "valid": False,
+                "errors": [f"Error en validación: {str(e)}"],
+                "warnings": [],
+                "user_id": user_id
+            }
     
-    def create_admin_user(self, nombre: str, email: str, password: str) -> dict:
-        """Crea un usuario administrador directamente (para setup inicial)"""
-        if self.users.find_one({"email": email}):
-            raise ValueError("Email ya registrado")
-
-        if len(password) < 8:
-            raise ValueError("Contraseña debe tener minimo 8 caracteres")
-
-        hashed_pw = hash_password(password)
-        admin_user = User(
-            nombre=nombre,
-            email=email,
-            password_hash=hashed_pw,
-            rol="admin",
-            estado=Estado.activo,  # Admin se crea directamente activo
-            perfil_completo=True,  # Admin no necesita completar perfil
-            fecha_aprobacion=datetime.utcnow()
-        )
-        user_dict = admin_user.dict()
-        result = self.users.insert_one(user_dict)
-        logger.info(f"Usuario administrador creado con email: {email}")
-        return {
-            "msg": "Usuario administrador creado exitosamente",
-            "id": str(result.inserted_id)
-        }
-    
-    def get_user_by_email(self, email: str) -> Optional[dict]:
-        """Obtiene un usuario por su email"""
+    # NUEVO: Obtener resumen de usuario para admin
+    def get_user_summary_for_admin(self, user_id: str) -> dict:
+        """Obtiene un resumen completo del usuario para administradores"""
         try:
-            user = self.users.find_one({"email": email})
-            if user:
-                user["_id"] = str(user["_id"])
-                # No devolver el hash de la contraseña
-                user.pop("password_hash", None)
+            user = self.users.find_one({"_id": ObjectId(user_id)})
+            if not user:
+                return {}
+            
+            # Información básica
+            user["_id"] = str(user["_id"])
+            if user.get("aprobado_por"):
+                user["aprobado_por"] = str(user["aprobado_por"])
+            
+            # Quitar información sensible
+            user.pop("password_hash", None)
+            
+            # Agregar información calculada
+            user["dias_desde_registro"] = (datetime.utcnow() - user.get("fecha_registro", datetime.utcnow())).days
+            
+            if user.get("fecha_aprobacion"):
+                user["dias_desde_aprobacion"] = (datetime.utcnow() - user["fecha_aprobacion"]).days
+            
+            if user.get("fecha_perfil_completado"):
+                user["dias_desde_perfil_completo"] = (datetime.utcnow() - user["fecha_perfil_completado"]).days
+            
+            # Validar integridad
+            integrity = self.validate_user_data_integrity(user_id)
+            user["integridad_datos"] = integrity
+            
+            logger.info(f"Resumen administrativo generado para usuario {user_id}")
             return user
+            
         except Exception as e:
-            logger.error(f"Error al obtener usuario por email: {e}")
-            return None
+            logger.error(f"Error al generar resumen administrativo: {e}")
+            return {}
     
-    def update_user_info(self, user_id: str, updates: dict) -> bool:
-        """Actualiza informacion del usuario"""
+    # NUEVO: Limpiar usuarios inactivos antiguos
+    def cleanup_inactive_users(self, days_threshold: int = 90) -> dict:
+        """Limpia usuarios inactivos que no han completado el registro en X días"""
         try:
-            # Filtrar campos que se pueden actualizar
-            allowed_fields = ["nombre", "nombre_local", "codigo_corresponsal"]
-            filtered_updates = {k: v for k, v in updates.items() if k in allowed_fields}
+            cutoff_date = datetime.utcnow() - timedelta(days=days_threshold)
             
-            if not filtered_updates:
-                return False
+            # Buscar usuarios pendientes antiguos
+            old_pending_users = list(self.users.find({
+                "estado": "pendiente",
+                "fecha_registro": {"$lt": cutoff_date}
+            }))
             
-            result = self.users.update_one(
-                {"_id": ObjectId(user_id)},
-                {"$set": filtered_updates}
-            )
+            # Buscar usuarios inactivos antiguos sin actividad
+            old_inactive_users = list(self.users.find({
+                "estado": "inactivo",
+                "fecha_registro": {"$lt": cutoff_date},
+                "fecha_aprobacion": None
+            }))
             
-            success = result.modified_count > 0
-            if success:
-                logger.info(f"Informacion actualizada para usuario {user_id}: {filtered_updates}")
+            # Contar antes de eliminar
+            pending_count = len(old_pending_users)
+            inactive_count = len(old_inactive_users)
             
-            return success
+            # Eliminar usuarios pendientes antiguos
+            result_pending = self.users.delete_many({
+                "estado": "pendiente",
+                "fecha_registro": {"$lt": cutoff_date}
+            })
+            
+            # Eliminar usuarios inactivos antiguos
+            result_inactive = self.users.delete_many({
+                "estado": "inactivo",
+                "fecha_registro": {"$lt": cutoff_date},
+                "fecha_aprobacion": None
+            })
+            
+            total_deleted = result_pending.deleted_count + result_inactive.deleted_count
+            
+            cleanup_result = {
+                "usuarios_eliminados": total_deleted,
+                "pendientes_eliminados": result_pending.deleted_count,
+                "inactivos_eliminados": result_inactive.deleted_count,
+                "umbral_dias": days_threshold,
+                "fecha_corte": cutoff_date.isoformat(),
+                "ejecutado_en": datetime.utcnow().isoformat()
+            }
+            
+            logger.info(f"Limpieza completada: {total_deleted} usuarios eliminados")
+            return cleanup_result
+            
         except Exception as e:
-            logger.error(f"Error al actualizar informacion del usuario: {e}")
-            return False
+            logger.error(f"Error en limpieza de usuarios: {e}")
+            return {
+                "usuarios_eliminados": 0,
+                "error": str(e)
+            }
+    
+    # NUEVO: Exportar datos de usuarios para backup
+    def export_users_data(self, include_sensitive: bool = False) -> List[dict]:
+        """Exporta datos de usuarios para backup (con opción de incluir datos sensibles)"""
+        try:
+            projection = {}
+            if not include_sensitive:
+                projection = {
+                    "password_hash": 0,
+                    "intentos_fallidos": 0
+                }
+            
+            users = list(self.users.find({}, projection))
+            
+            # Convertir ObjectIds y fechas a strings para serialización
+            for user in users:
+                user["_id"] = str(user["_id"])
+                if user.get("aprobado_por"):
+                    user["aprobado_por"] = str(user["aprobado_por"])
+                
+                # Convertir fechas a ISO string
+                date_fields = ["fecha_registro", "fecha_aprobacion", "fecha_perfil_completado", "fecha_cambio_estado"]
+                for field in date_fields:
+                    if user.get(field):
+                        user[field] = user[field].isoformat()
+            
+            logger.info(f"Exportación de {len(users)} usuarios completada (sensible: {include_sensitive})")
+            return users
+            
+        except Exception as e:
+            logger.error(f"Error en exportación de usuarios: {e}")
+            return []

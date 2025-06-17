@@ -1,5 +1,5 @@
-# app/routes/auth.py - ACTUALIZADO CON CÓDIGO CORRESPONSAL
-from fastapi import APIRouter, HTTPException, Depends
+# app/routes/auth.py - VERSIÓN EXTENDIDA CON NUEVAS RUTAS
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from app.services.user_service import UserService
@@ -26,6 +26,11 @@ class UserApprovalRequest(BaseModel):
 class ChangeRoleRequest(BaseModel):
     user_id: str
     role: str
+
+# NUEVO: Modelo para cambiar estado
+class ChangeStateRequest(BaseModel):
+    user_id: str
+    state: str
 
 # Inicializa el servicio
 user_service = UserService()
@@ -67,7 +72,7 @@ def login(user: UserLogin):
 def me(user=Depends(get_current_user)):
     return user
 
-# NUEVA RUTA: Completar perfil de usuario
+# Completar perfil de usuario (existente)
 @router.post("/complete-profile")
 async def complete_profile(profile: UserProfile, user=Depends(get_current_user)):
     """Completa el perfil del usuario en su primer login"""
@@ -89,7 +94,7 @@ async def complete_profile(profile: UserProfile, user=Depends(get_current_user))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# NUEVA RUTA: Verificar código de corresponsal
+# Verificar código de corresponsal (existente)
 @router.get("/verify-code/{codigo}")
 async def verify_corresponsal_code(codigo: str, user=Depends(get_current_user)):
     """Verifica si el código de corresponsal es válido para el usuario"""
@@ -104,7 +109,40 @@ async def get_pending_users(user=Depends(role_required(["admin", "operador"]))):
     """Obtiene todos los usuarios pendientes de aprobación"""
     return user_service.get_pending_users()
 
-# RUTA ACTUALIZADA: Aprobar usuario con código de corresponsal
+# NUEVA: Obtener todos los usuarios
+@router.get("/all-users", response_model=List[dict])
+async def get_all_users(user=Depends(role_required(["admin", "operador"]))):
+    """Obtiene todos los usuarios del sistema"""
+    return user_service.get_all_users()
+
+# NUEVA: Obtener detalles de un usuario específico
+@router.get("/user-details/{user_id}")
+async def get_user_details(user_id: str, user=Depends(role_required(["admin", "operador"]))):
+    """Obtiene los detalles completos de un usuario específico"""
+    user_details = user_service.get_user_info(user_id)
+    if not user_details:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return user_details
+
+# NUEVA: Buscar usuarios
+@router.get("/search-users", response_model=List[dict])
+async def search_users(
+    q: str = Query(..., description="Término de búsqueda"),
+    user=Depends(role_required(["admin", "operador"]))
+):
+    """Busca usuarios por nombre, email, código de corresponsal, etc."""
+    if len(q.strip()) < 2:
+        raise HTTPException(status_code=400, detail="El término de búsqueda debe tener al menos 2 caracteres")
+    
+    return user_service.search_users(q.strip())
+
+# NUEVA: Obtener estadísticas de usuarios
+@router.get("/user-stats")
+async def get_user_stats(user=Depends(role_required(["admin", "operador"]))):
+    """Obtiene estadísticas generales de usuarios"""
+    return user_service.get_user_statistics()
+
+# Aprobar usuario con código (existente)
 @router.post("/approve-user-with-code")
 async def approve_user_with_code(request: UserApprovalWithCode, user=Depends(role_required(["admin", "operador"]))):
     """Aprueba un usuario y le asigna un código de corresponsal"""
@@ -151,3 +189,74 @@ async def change_user_role(request: ChangeRoleRequest, user=Depends(role_require
         return {"message": f"Rol cambiado a {request.role} correctamente"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+# NUEVA: Cambiar estado del usuario
+@router.put("/change-state")
+async def change_user_state(request: ChangeStateRequest, user=Depends(role_required(["admin", "operador"]))):
+    """Cambia el estado de un usuario (activo, suspendido, inactivo)"""
+    try:
+        # Validar estados permitidos
+        valid_states = ["activo", "suspendido", "inactivo"]
+        if request.state not in valid_states:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Estado inválido. Estados permitidos: {', '.join(valid_states)}"
+            )
+        
+        success = user_service.change_user_state(request.user_id, request.state)
+        if not success:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        return {"message": f"Estado cambiado a '{request.state}' correctamente"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# NUEVA: Activar usuario suspendido
+@router.post("/activate-user")
+async def activate_user(request: UserApprovalRequest, user=Depends(role_required(["admin", "operador"]))):
+    """Activa un usuario que estaba suspendido o inactivo"""
+    try:
+        success = user_service.change_user_state(request.user_id, "activo")
+        if not success:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        return {"message": "Usuario activado correctamente"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# NUEVA: Suspender usuario
+@router.post("/suspend-user")
+async def suspend_user(request: UserApprovalRequest, user=Depends(role_required(["admin", "operador"]))):
+    """Suspende un usuario activo"""
+    try:
+        success = user_service.change_user_state(request.user_id, "suspendido")
+        if not success:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        return {"message": "Usuario suspendido correctamente"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# NUEVA: Obtener usuarios por estado
+@router.get("/users-by-state/{state}")
+async def get_users_by_state(state: str, user=Depends(role_required(["admin", "operador"]))):
+    """Obtiene usuarios filtrados por estado"""
+    valid_states = ["activo", "pendiente", "suspendido", "inactivo"]
+    if state not in valid_states:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Estado inválido. Estados válidos: {', '.join(valid_states)}"
+        )
+    
+    return user_service.get_users_by_state(state)
+
+# NUEVA: Obtener usuarios por rol
+@router.get("/users-by-role/{role}")
+async def get_users_by_role(role: str, user=Depends(role_required(["admin", "operador"]))):
+    """Obtiene usuarios filtrados por rol"""
+    valid_roles = ["admin", "operador", "lector"]
+    if role not in valid_roles:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Rol inválido. Roles válidos: {', '.join(valid_roles)}"
+        )
+    
+    return user_service.get_users_by_role(role)
