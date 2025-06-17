@@ -1,7 +1,263 @@
-# app/services/user_service.py - MÉTODOS ADICIONALES PARA GESTIÓN COMPLETA
-# Agregar estos métodos al UserService existente
+# -*- coding: utf-8 -*-
+# app/services/user_service.py
+import logging
+from datetime import datetime, timedelta
+from typing import List, Optional
+from pymongo import MongoClient, DESCENDING
+from bson import ObjectId
+from app.config import MONGO_URI, DATABASE_NAME
+from app.services.crypto_service import hash_password, verify_password
 
-    # NUEVO: Obtener todos los usuarios
+logger = logging.getLogger(__name__)
+
+class UserService:
+    def __init__(self):
+        try:
+            logger.info("Conectando a MongoDB...")
+            self.client = MongoClient(MONGO_URI)
+            self.db = self.client[DATABASE_NAME]
+            self.users = self.db["users"]
+            logger.info("Conexión exitosa a la base de datos")
+        except Exception as e:
+            logger.error(f"Error al conectar a MongoDB: {e}")
+            raise
+
+    def register_user(self, nombre: str, email: str, password: str, rol: str = "lector") -> dict:
+        """Registra un nuevo usuario"""
+        try:
+            # Verificar si el email ya existe
+            if self.users.find_one({"email": email}):
+                raise ValueError("El email ya está registrado")
+            
+            # Hash de la contraseña
+            password_hash = hash_password(password)
+            
+            # Crear el usuario
+            user_data = {
+                "nombre": nombre,
+                "email": email,
+                "password_hash": password_hash,
+                "rol": rol,
+                "estado": "pendiente",
+                "fecha_registro": datetime.utcnow(),
+                "perfil_completo": False,
+                "intentos_fallidos": 0
+            }
+            
+            result = self.users.insert_one(user_data)
+            logger.info(f"Usuario registrado: {email}")
+            
+            return {"message": "Usuario registrado exitosamente", "user_id": str(result.inserted_id)}
+            
+        except Exception as e:
+            logger.error(f"Error al registrar usuario: {e}")
+            raise
+
+    def authenticate_user(self, email: str, password: str) -> Optional[dict]:
+        """Autentica un usuario"""
+        try:
+            user = self.users.find_one({"email": email})
+            if not user:
+                return None
+            
+            if not verify_password(password, user["password_hash"]):
+                # Incrementar intentos fallidos
+                self.users.update_one(
+                    {"_id": user["_id"]},
+                    {"$inc": {"intentos_fallidos": 1}}
+                )
+                return None
+            
+            # Reset intentos fallidos en login exitoso
+            self.users.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"intentos_fallidos": 0}}
+            )
+            
+            # Convertir ObjectId a string
+            user["_id"] = str(user["_id"])
+            
+            logger.info(f"Usuario autenticado: {email}")
+            return user
+            
+        except Exception as e:
+            logger.error(f"Error en autenticación: {e}")
+            return None
+
+    def get_user_info(self, user_id: str) -> Optional[dict]:
+        """Obtiene información de un usuario por ID"""
+        try:
+            user = self.users.find_one({"_id": ObjectId(user_id)})
+            if user:
+                user["_id"] = str(user["_id"])
+                # No devolver el hash de contraseña
+                user.pop("password_hash", None)
+            return user
+        except Exception as e:
+            logger.error(f"Error al obtener usuario: {e}")
+            return None
+
+    def complete_user_profile(self, user_id: str, codigo_corresponsal: str, 
+                            nombre_local: str, nombre_completo: str, nueva_password: str) -> bool:
+        """Completa el perfil del usuario"""
+        try:
+            # Verificar que el usuario existe y está pendiente
+            user = self.users.find_one({"_id": ObjectId(user_id)})
+            if not user or user.get("estado") != "pendiente":
+                return False
+            
+            # Hash de la nueva contraseña
+            password_hash = hash_password(nueva_password)
+            
+            # Actualizar el usuario
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
+                {
+                    "$set": {
+                        "codigo_corresponsal": codigo_corresponsal,
+                        "nombre_local": nombre_local,
+                        "nombre": nombre_completo,
+                        "password_hash": password_hash,
+                        "perfil_completo": True,
+                        "fecha_perfil_completado": datetime.utcnow()
+                    }
+                }
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Perfil completado para usuario: {user_id}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error al completar perfil: {e}")
+            return False
+
+    def verify_corresponsal_code(self, user_id: str, codigo: str) -> bool:
+        """Verifica si un código de corresponsal es válido para el usuario"""
+        try:
+            # Aquí puedes implementar la lógica de validación del código
+            # Por ahora, una validación simple
+            if len(codigo) >= 3:
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error al verificar código: {e}")
+            return False
+
+    def get_pending_users(self) -> List[dict]:
+        """Obtiene usuarios pendientes de aprobación"""
+        try:
+            users = list(self.users.find({"estado": "pendiente"}).sort("fecha_registro", DESCENDING))
+            
+            # Convertir ObjectId a string y quitar password_hash
+            for user in users:
+                user["_id"] = str(user["_id"])
+                user.pop("password_hash", None)
+            
+            return users
+            
+        except Exception as e:
+            logger.error(f"Error al obtener usuarios pendientes: {e}")
+            return []
+
+    def approve_user(self, user_id: str, admin_id: str) -> bool:
+        """Aprueba un usuario pendiente"""
+        try:
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id), "estado": "pendiente"},
+                {
+                    "$set": {
+                        "estado": "activo",
+                        "aprobado_por": ObjectId(admin_id),
+                        "fecha_aprobacion": datetime.utcnow()
+                    }
+                }
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Usuario {user_id} aprobado por {admin_id}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error al aprobar usuario: {e}")
+            return False
+
+    def approve_user_with_code(self, user_id: str, admin_id: str, codigo_corresponsal: str) -> bool:
+        """Aprueba un usuario y le asigna un código de corresponsal"""
+        try:
+            # Verificar que el código no esté en uso
+            existing_code = self.users.find_one({"codigo_corresponsal": codigo_corresponsal})
+            if existing_code and str(existing_code["_id"]) != user_id:
+                raise ValueError("El código de corresponsal ya está en uso")
+            
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id), "estado": "pendiente"},
+                {
+                    "$set": {
+                        "estado": "activo",
+                        "codigo_corresponsal": codigo_corresponsal,
+                        "aprobado_por": ObjectId(admin_id),
+                        "fecha_aprobacion": datetime.utcnow()
+                    }
+                }
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Usuario {user_id} aprobado con código {codigo_corresponsal}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error al aprobar usuario con código: {e}")
+            return False
+
+    def reject_user(self, user_id: str) -> bool:
+        """Rechaza un usuario pendiente"""
+        try:
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id), "estado": "pendiente"},
+                {"$set": {"estado": "rechazado"}}
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Usuario {user_id} rechazado")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error al rechazar usuario: {e}")
+            return False
+
+    def change_user_role(self, user_id: str, new_role: str) -> bool:
+        """Cambia el rol de un usuario"""
+        try:
+            valid_roles = ["admin", "operador", "lector"]
+            if new_role not in valid_roles:
+                raise ValueError(f"Rol inválido: {new_role}")
+            
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": {"rol": new_role}}
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Rol del usuario {user_id} cambiado a: {new_role}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error al cambiar rol: {e}")
+            return False
+
+    # MÉTODOS ADICIONALES PARA GESTIÓN COMPLETA
+
     def get_all_users(self) -> List[dict]:
         """Obtiene todos los usuarios del sistema (excepto passwords)"""
         try:
@@ -26,7 +282,6 @@
             logger.error(f"Error al obtener todos los usuarios: {e}")
             return []
     
-    # NUEVO: Cambiar estado del usuario
     def change_user_state(self, user_id: str, new_state: str) -> bool:
         """Cambia el estado de un usuario"""
         try:
@@ -55,7 +310,6 @@
             logger.error(f"Error al cambiar estado del usuario: {e}")
             return False
     
-    # NUEVO: Buscar usuarios
     def search_users(self, search_term: str) -> List[dict]:
         """Busca usuarios por nombre, email, código de corresponsal, etc."""
         try:
@@ -92,7 +346,6 @@
             logger.error(f"Error en búsqueda de usuarios: {e}")
             return []
     
-    # NUEVO: Obtener estadísticas de usuarios
     def get_user_statistics(self) -> dict:
         """Obtiene estadísticas generales de usuarios"""
         try:
@@ -159,7 +412,6 @@
                 "porcentaje_perfiles_completos": 0
             }
     
-    # NUEVO: Obtener usuarios por estado
     def get_users_by_state(self, state: str) -> List[dict]:
         """Obtiene usuarios filtrados por estado específico"""
         try:
@@ -182,7 +434,6 @@
             logger.error(f"Error al obtener usuarios por estado: {e}")
             return []
     
-    # NUEVO: Obtener usuarios por rol
     def get_users_by_role(self, role: str) -> List[dict]:
         """Obtiene usuarios filtrados por rol específico"""
         try:
@@ -205,7 +456,6 @@
             logger.error(f"Error al obtener usuarios por rol: {e}")
             return []
     
-    # NUEVO: Obtener actividad reciente de usuarios
     def get_recent_user_activity(self, days: int = 7) -> List[dict]:
         """Obtiene actividad reciente de usuarios en los últimos N días"""
         try:
@@ -261,7 +511,6 @@
                 "periodo_dias": days
             }
     
-    # NUEVO: Validar integridad de datos de usuario
     def validate_user_data_integrity(self, user_id: str) -> dict:
         """Valida la integridad de los datos de un usuario"""
         try:
@@ -326,7 +575,6 @@
                 "user_id": user_id
             }
     
-    # NUEVO: Obtener resumen de usuario para admin
     def get_user_summary_for_admin(self, user_id: str) -> dict:
         """Obtiene un resumen completo del usuario para administradores"""
         try:
@@ -362,7 +610,6 @@
             logger.error(f"Error al generar resumen administrativo: {e}")
             return {}
     
-    # NUEVO: Limpiar usuarios inactivos antiguos
     def cleanup_inactive_users(self, days_threshold: int = 90) -> dict:
         """Limpia usuarios inactivos que no han completado el registro en X días"""
         try:
@@ -419,7 +666,6 @@
                 "error": str(e)
             }
     
-    # NUEVO: Exportar datos de usuarios para backup
     def export_users_data(self, include_sensitive: bool = False) -> List[dict]:
         """Exporta datos de usuarios para backup (con opción de incluir datos sensibles)"""
         try:
