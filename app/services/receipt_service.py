@@ -1,320 +1,386 @@
-# app/services/receipt_service.py - MEJORADO con validación global
-from datetime import datetime
-from typing import List, Optional
-import logging
-from pymongo import MongoClient, ASCENDING
-from pymongo.collection import Collection
-from app.config import MONGO_URI, DATABASE_NAME
-from app.models.receipt import ReceiptModel
+# app/services/receipt_service.py - ACTUALIZADO CON MÉTODOS PARA CORRESPONSALES
 
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
+import logging
+from datetime import datetime
+from typing import List, Optional, Dict
+from pymongo import MongoClient, DESCENDING
+from bson import ObjectId
+from app.config import MONGO_URI, DATABASE_NAME
+
 logger = logging.getLogger(__name__)
 
 class ReceiptService:
     def __init__(self):
         try:
-            logger.info("Conectando a MongoDB...")
+            logger.info("Conectando a MongoDB para receipts...")
             self.client = MongoClient(MONGO_URI)
             self.db = self.client[DATABASE_NAME]
             self.receipts = self.db["receipts"]
-            
-            # ������ MEJORA: Crear índice único compuesto para optimizar las consultas
-            self._ensure_indexes()
-            
-            logger.info(f"Conexión exitosa a la base de datos: {DATABASE_NAME}")
+            self.users = self.db["users"]  # Para hacer joins/lookups
+            logger.info("Conexión exitosa a la base de datos")
         except Exception as e:
             logger.error(f"Error al conectar a MongoDB: {e}")
             raise
-    
-    def _ensure_indexes(self):
-        """Crear índices para optimizar las consultas y garantizar unicidad"""
+
+    def create_receipt(self, receipt_data: dict) -> Optional[str]:
+        """Crear un nuevo comprobante CON información del corresponsal"""
         try:
-            # Índice único en número de transacción para prevenir duplicados globalmente
-            self.receipts.create_index(
-                "nro_transaccion", 
-                unique=True, 
-                name="unique_transaction_number"
-            )
+            # Validar que no exista el mismo número de transacción
+            existing_receipt = self.receipts.find_one({
+                "nro_transaccion": receipt_data["nro_transaccion"]
+            })
             
-            # Índice compuesto para consultas por usuario y fecha
-            self.receipts.create_index(
-                [("user_id", ASCENDING), ("fecha", ASCENDING)], 
-                name="user_date_index"
-            )
+            if existing_receipt:
+                raise ValueError("Ya existe un comprobante con este número de transacción")
             
-            # Índice simple en fecha para reportes globales
-            self.receipts.create_index("fecha", name="date_index")
+            result = self.receipts.insert_one(receipt_data)
             
-            # Índice simple en user_id para consultas por usuario
-            self.receipts.create_index("user_id", name="user_index")
+            logger.info(f"Comprobante creado por corresponsal {receipt_data.get('codigo_corresponsal', 'N/A')}: {receipt_data['nro_transaccion']}")
+            return str(result.inserted_id)
             
-            logger.info("Índices creados/verificados exitosamente")
         except Exception as e:
-            logger.warning(f"Error al crear índices (puede ser normal si ya existen): {e}")
-    
-    async def get_all_receipts(self, user_id: Optional[str] = None) -> List[dict]:
-        """
-        Obtiene todos los comprobantes, opcionalmente filtrados por usuario.
-        
-        Args:
-            user_id: ID del usuario para filtrar los comprobantes (None = todos)
-            
-        Returns:
-            Lista de comprobantes encontrados
-        """
+            logger.error(f"Error al crear comprobante: {e}")
+            raise
+
+    def get_all_receipts_with_corresponsal_info(self) -> List[dict]:
+        """Obtener TODOS los comprobantes con información del corresponsal (solo admin/operador)"""
         try:
-            # Crear filtro basado en user_id si se proporciona
-            filter_query = {}
-            if user_id:
-                filter_query["user_id"] = user_id
-                logger.info(f"Filtrando comprobantes para el usuario: {user_id}")
-            else:
-                logger.info("Obteniendo TODOS los comprobantes del sistema")
+            receipts = list(self.receipts.find({}).sort("created_at", DESCENDING))
             
-            receipts = list(self.receipts.find(filter_query).sort("created_at", -1))
-            
+            # Convertir ObjectId a string
             for receipt in receipts:
                 receipt["_id"] = str(receipt["_id"])
+                if receipt.get("user_id"):
+                    receipt["user_id"] = str(receipt["user_id"])
             
-            logger.info(f"Se encontraron {len(receipts)} comprobantes{' para el usuario: ' + user_id if user_id else ' en total'}")
+            logger.info(f"Se obtuvieron {len(receipts)} comprobantes con información de corresponsal")
             return receipts
+            
         except Exception as e:
             logger.error(f"Error al obtener comprobantes: {e}")
             return []
-    
-    async def get_receipts_by_date(self, date_str: str, user_id: Optional[str] = None) -> List[dict]:
-        """
-        Obtiene comprobantes por fecha, opcionalmente filtrados por usuario.
-        
-        Args:
-            date_str: Fecha en formato dd/mm/yyyy
-            user_id: ID del usuario para filtrar los comprobantes (None = todos)
-            
-        Returns:
-            Lista de comprobantes encontrados
-        """
+
+    def get_receipts_by_user(self, user_id: str) -> List[dict]:
+        """Obtener comprobantes de un usuario específico (para lectores)"""
         try:
-            logger.info(f"Buscando comprobantes para la fecha: {date_str}{' y usuario: ' + user_id if user_id else ' (todos los usuarios)'}")
-            
-            # Crear filtro con fecha y, opcionalmente, user_id
-            filter_query = {"fecha": date_str}
-            if user_id:
-                filter_query["user_id"] = user_id
-            
-            receipts = list(self.receipts.find(filter_query).sort("created_at", -1))
-            
-            logger.info(f"Se encontraron {len(receipts)} comprobantes para la fecha {date_str}{' y usuario: ' + user_id if user_id else ''}")
+            receipts = list(self.receipts.find({
+                "user_id": user_id
+            }).sort("created_at", DESCENDING))
             
             for receipt in receipts:
                 receipt["_id"] = str(receipt["_id"])
+                if receipt.get("user_id"):
+                    receipt["user_id"] = str(receipt["user_id"])
+            
+            logger.info(f"Se obtuvieron {len(receipts)} comprobantes del usuario {user_id}")
             return receipts
+            
+        except Exception as e:
+            logger.error(f"Error al obtener comprobantes del usuario: {e}")
+            return []
+
+    def get_receipts_by_corresponsal(self, codigo_corresponsal: str) -> List[dict]:
+        """Obtener comprobantes filtrados por código de corresponsal"""
+        try:
+            receipts = list(self.receipts.find({
+                "codigo_corresponsal": codigo_corresponsal
+            }).sort("created_at", DESCENDING))
+            
+            for receipt in receipts:
+                receipt["_id"] = str(receipt["_id"])
+                if receipt.get("user_id"):
+                    receipt["user_id"] = str(receipt["user_id"])
+            
+            logger.info(f"Se obtuvieron {len(receipts)} comprobantes del corresponsal {codigo_corresponsal}")
+            return receipts
+            
+        except Exception as e:
+            logger.error(f"Error al obtener comprobantes por corresponsal: {e}")
+            return []
+
+    def get_available_corresponsales(self) -> List[str]:
+        """Obtener lista de corresponsales que tienen comprobantes"""
+        try:
+            pipeline = [
+                {
+                    "$match": {
+                        "codigo_corresponsal": {"$exists": True, "$ne": None}
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": "$codigo_corresponsal",
+                        "count": {"$sum": 1},
+                        "nombre_corresponsal": {"$first": "$nombre_corresponsal"},
+                        "nombre_local": {"$first": "$nombre_local"}
+                    }
+                },
+                {
+                    "$sort": {"_id": 1}
+                }
+            ]
+            
+            result = list(self.receipts.aggregate(pipeline))
+            
+            # Formatear resultado
+            corresponsales = []
+            for item in result:
+                corresponsales.append({
+                    "codigo": item["_id"],
+                    "nombre": item.get("nombre_corresponsal", "Sin nombre"),
+                    "nombre_local": item.get("nombre_local", "Sin local"),
+                    "total_comprobantes": item["count"]
+                })
+            
+            logger.info(f"Se encontraron {len(corresponsales)} corresponsales con comprobantes")
+            return corresponsales
+            
+        except Exception as e:
+            logger.error(f"Error al obtener corresponsales: {e}")
+            return []
+
+    def get_receipts_by_date_with_corresponsal(self, date: str) -> List[dict]:
+        """Obtener comprobantes por fecha CON información del corresponsal (admin/operador)"""
+        try:
+            # Normalizar formatos de fecha
+            date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
+            
+            query = {"fecha": {"$in": date_variations}}
+            receipts = list(self.receipts.find(query).sort("created_at", DESCENDING))
+            
+            for receipt in receipts:
+                receipt["_id"] = str(receipt["_id"])
+                if receipt.get("user_id"):
+                    receipt["user_id"] = str(receipt["user_id"])
+            
+            logger.info(f"Se obtuvieron {len(receipts)} comprobantes para la fecha {date}")
+            return receipts
+            
         except Exception as e:
             logger.error(f"Error al obtener comprobantes por fecha: {e}")
             return []
-    
-    async def create_receipt(self, receipt: ReceiptModel, user_id: Optional[str] = None) -> dict:
-        """
-        Crea un nuevo comprobante, asociándolo a un usuario si se proporciona.
-        
-        Args:
-            receipt: Modelo del comprobante a crear
-            user_id: ID del usuario que crea el comprobante
-            
-        Returns:
-            Comprobante creado
-            
-        Raises:
-            Exception: Si hay un error de duplicado o cualquier otro error
-        """
+
+    def get_receipts_by_date_and_user(self, date: str, user_id: str) -> List[dict]:
+        """Obtener comprobantes por fecha Y usuario específico (lectores)"""
         try:
-            receipt_dict = receipt.dict(by_alias=True)
-            receipt_dict["created_at"] = datetime.now()
+            date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
             
-            # Asignar user_id si se proporciona
-            if user_id:
-                receipt_dict["user_id"] = user_id
-                logger.info(f"Asignando comprobante al usuario: {user_id}")
+            query = {
+                "fecha": {"$in": date_variations},
+                "user_id": user_id
+            }
             
-            logger.info(f"Intentando guardar comprobante: {receipt_dict.get('nro_transaccion')}")
+            receipts = list(self.receipts.find(query).sort("created_at", DESCENDING))
             
-            # ������ La unicidad se garantiza por el índice único en la base de datos
-            # Si hay duplicado, MongoDB lanzará una excepción automáticamente
-            result = self.receipts.insert_one(receipt_dict)
-            created_receipt = self.receipts.find_one({"_id": result.inserted_id})
-            
-            if created_receipt:
-                created_receipt["_id"] = str(created_receipt["_id"])
-                logger.info(f"Comprobante guardado exitosamente con ID: {created_receipt['_id']}")
-                return created_receipt
-            else:
-                logger.error("No se pudo recuperar el comprobante guardado")
-                return receipt_dict
-                
-        except Exception as e:
-            # Detectar errores de duplicado de MongoDB
-            if "duplicate key error" in str(e) or "E11000" in str(e):
-                logger.warning(f"Intento de crear comprobante duplicado: {receipt.nroTransaccion}")
-                raise Exception(f"El número de transacción {receipt.nroTransaccion} ya existe en el sistema")
-            else:
-                logger.error(f"Error al crear comprobante: {e}")
-                raise
-    
-    async def get_receipt_by_transaction(self, transaction_number: str, user_id: Optional[str] = None) -> Optional[dict]:
-        """
-        Busca un comprobante por número de transacción, opcionalmente filtrado por usuario.
-        
-        Args:
-            transaction_number: Número de transacción a buscar
-            user_id: ID del usuario para filtrar los comprobantes (None = buscar globalmente)
-            
-        Returns:
-            Comprobante encontrado o None
-        """
-        try:
-            logger.info(f"Buscando comprobante con número de transacción: '{transaction_number}'{' para usuario: ' + user_id if user_id else ' (búsqueda global)'}")
-            
-            # Crear filtro con nro_transaccion y, opcionalmente, user_id
-            filter_query = {"nro_transaccion": transaction_number}
-            if user_id:
-                filter_query["user_id"] = user_id
-            
-            receipt = self.receipts.find_one(filter_query)
-            
-            if receipt:
-                logger.info(f"Comprobante encontrado: {receipt.get('_id')} (usuario: {receipt.get('user_id', 'N/A')})")
+            for receipt in receipts:
                 receipt["_id"] = str(receipt["_id"])
-                return receipt
-            else:
-                logger.info(f"No se encontró comprobante con transacción: {transaction_number}{' para usuario: ' + user_id if user_id else ' en el sistema'}")
-                return None
+                if receipt.get("user_id"):
+                    receipt["user_id"] = str(receipt["user_id"])
+            
+            logger.info(f"Se obtuvieron {len(receipts)} comprobantes del usuario {user_id} para la fecha {date}")
+            return receipts
+            
         except Exception as e:
-            logger.error(f"Error al buscar comprobante: {e}")
-            return None
-    
-    async def delete_receipt(self, transaction_number: str, user_id: Optional[str] = None) -> bool:
-        """
-        Elimina un comprobante por número de transacción, opcionalmente filtrado por usuario.
-        
-        Args:
-            transaction_number: Número de transacción a eliminar
-            user_id: ID del usuario para filtrar los comprobantes (None = eliminar globalmente)
-            
-        Returns:
-            True si se eliminó correctamente, False en caso contrario
-        """
+            logger.error(f"Error al obtener comprobantes por fecha y usuario: {e}")
+            return []
+
+    def generate_closing_report_by_corresponsal(self, date: str, codigo_corresponsal: str) -> dict:
+        """Generar reporte de cierre filtrado por corresponsal"""
         try:
-            logger.info(f"Intentando eliminar comprobante con transacción: '{transaction_number}'{' para usuario: ' + user_id if user_id else ' (eliminación global)'}")
+            date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
             
-            # Crear filtro con nro_transaccion y, opcionalmente, user_id
-            filter_query = {"nro_transaccion": transaction_number}
-            if user_id:
-                filter_query["user_id"] = user_id
+            query = {
+                "fecha": {"$in": date_variations},
+                "codigo_corresponsal": codigo_corresponsal
+            }
             
-            result = self.receipts.delete_one(filter_query)
+            receipts = list(self.receipts.find(query))
+            
+            return self._process_receipts_for_report(receipts, f"Corresponsal {codigo_corresponsal}")
+            
+        except Exception as e:
+            logger.error(f"Error al generar reporte por corresponsal: {e}")
+            return self._empty_report()
+
+    def generate_closing_report_by_user(self, date: str, user_id: str) -> dict:
+        """Generar reporte de cierre para un usuario específico (lectores)"""
+        try:
+            date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
+            
+            query = {
+                "fecha": {"$in": date_variations},
+                "user_id": user_id
+            }
+            
+            receipts = list(self.receipts.find(query))
+            
+            return self._process_receipts_for_report(receipts, f"Usuario {user_id}")
+            
+        except Exception as e:
+            logger.error(f"Error al generar reporte por usuario: {e}")
+            return self._empty_report()
+
+    def generate_closing_report(self, date: str) -> dict:
+        """Generar reporte de cierre completo (admin/operador)"""
+        try:
+            date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
+            
+            query = {"fecha": {"$in": date_variations}}
+            receipts = list(self.receipts.find(query))
+            
+            return self._process_receipts_for_report(receipts, "Todos")
+            
+        except Exception as e:
+            logger.error(f"Error al generar reporte completo: {e}")
+            return self._empty_report()
+
+    def _process_receipts_for_report(self, receipts: List[dict], scope: str) -> dict:
+        """Procesar lista de comprobantes para generar reporte"""
+        if not receipts:
+            return self._empty_report()
+
+        # Clasificar en ingresos y egresos
+        income_types = {'DEPOSITO', 'PAGO DE SERVICIO', 'RECARGA CLARO', 'ENVIO GIRO'}
+        expense_types = {'RETIRO', 'EFECTIVO MOVIL', 'PAGO GIRO'}
+
+        incomes = {}
+        income_count = {}
+        expenses = {}
+        expense_count = {}
+
+        total_incomes = 0.0
+        total_expenses = 0.0
+        total_income_count = 0
+        total_expense_count = 0
+
+        for receipt in receipts:
+            tipo = receipt.get('tipo', '').upper()
+            valor = float(receipt.get('valor_total', 0))
+
+            if tipo in income_types:
+                incomes[tipo] = incomes.get(tipo, 0) + valor
+                income_count[tipo] = income_count.get(tipo, 0) + 1
+                total_incomes += valor
+                total_income_count += 1
+            elif tipo in expense_types:
+                expenses[tipo] = expenses.get(tipo, 0) + valor
+                expense_count[tipo] = expense_count.get(tipo, 0) + 1
+                total_expenses += valor
+                total_expense_count += 1
+
+        return {
+            'incomes': incomes,
+            'incomeCount': income_count,
+            'expenses': expenses,
+            'expenseCount': expense_count,
+            'totalIncomes': total_incomes,
+            'totalExpenses': total_expenses,
+            'totalIncomeCount': total_income_count,
+            'totalExpenseCount': total_expense_count,
+            'saldoEnCaja': total_incomes - total_expenses,
+            'count': len(receipts),
+            'scope': scope
+        }
+
+    def _empty_report(self) -> dict:
+        """Retornar reporte vacío"""
+        return {
+            'incomes': {},
+            'incomeCount': {},
+            'expenses': {},
+            'expenseCount': {},
+            'totalIncomes': 0.0,
+            'totalExpenses': 0.0,
+            'totalIncomeCount': 0,
+            'totalExpenseCount': 0,
+            'saldoEnCaja': 0.0,
+            'count': 0,
+            'scope': 'Ninguno'
+        }
+
+    def delete_receipt(self, transaction_number: str) -> bool:
+        """Eliminar comprobante (admin/operador)"""
+        try:
+            result = self.receipts.delete_one({"nro_transaccion": transaction_number})
             
             success = result.deleted_count > 0
-            logger.info(f"Resultado de eliminación: {success} (deleted_count: {result.deleted_count})")
+            if success:
+                logger.info(f"Comprobante eliminado: {transaction_number}")
+            
             return success
+            
         except Exception as e:
             logger.error(f"Error al eliminar comprobante: {e}")
             return False
-    
-    async def generate_closing_report(self, date_str: str, user_id: Optional[str] = None) -> dict:
-        """
-        Genera un reporte de cierre para una fecha específica, opcionalmente filtrado por usuario.
-        
-        Args:
-            date_str: Fecha en formato dd/mm/yyyy
-            user_id: ID del usuario para filtrar los comprobantes (None = reporte global)
-            
-        Returns:
-            Diccionario con el reporte generado
-        """
+
+    def delete_receipt_by_user(self, transaction_number: str, user_id: str) -> bool:
+        """Eliminar comprobante solo si pertenece al usuario (lectores)"""
         try:
-            logger.info(f"Generando reporte para la fecha: {date_str}{' y usuario: ' + user_id if user_id else ' (reporte global)'}")
+            result = self.receipts.delete_one({
+                "nro_transaccion": transaction_number,
+                "user_id": user_id
+            })
             
-            receipts = await self.get_receipts_by_date(date_str, user_id)
+            success = result.deleted_count > 0
+            if success:
+                logger.info(f"Comprobante eliminado por usuario {user_id}: {transaction_number}")
             
-            if not receipts:
-                logger.info(f"No hay comprobantes para la fecha {date_str}{' y usuario: ' + user_id if user_id else ''}")
-                return {
-                    "summary": {},
-                    "total": 0.0,
-                    "date": date_str,
-                    "count": 0,
-                    "user_id": user_id if user_id else None
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error al eliminar comprobante por usuario: {e}")
+            return False
+
+    def get_receipts_stats_by_corresponsal(self) -> List[dict]:
+        """Obtener estadísticas de comprobantes agrupadas por corresponsal (admin/operador)"""
+        try:
+            pipeline = [
+                {
+                    "$match": {
+                        "codigo_corresponsal": {"$exists": True, "$ne": None}
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": "$codigo_corresponsal",
+                        "total_comprobantes": {"$sum": 1},
+                        "valor_total": {"$sum": "$valor_total"},
+                        "nombre_corresponsal": {"$first": "$nombre_corresponsal"},
+                        "nombre_local": {"$first": "$nombre_local"},
+                        "ultimo_comprobante": {"$max": "$created_at"}
+                    }
+                },
+                {
+                    "$sort": {"total_comprobantes": -1}
                 }
-            
-            # Calcular total
-            total = sum(receipt.get("valor_total", 0) for receipt in receipts)
-            
-            # Agrupar por tipo de transacción
-            summary = {}
-            for receipt in receipts:
-                tipo = receipt.get("tipo", "Desconocido")
-                if tipo in summary:
-                    summary[tipo] += receipt.get("valor_total", 0)
-                else:
-                    summary[tipo] = receipt.get("valor_total", 0)
-            
-            logger.info(f"Reporte generado para {date_str}{' y usuario: ' + user_id if user_id else ''}: {len(receipts)} comprobantes, total: {total}")
-            return {
-                "summary": summary,
-                "total": total,
-                "date": date_str,
-                "count": len(receipts),
-                "user_id": user_id if user_id else None
-            }
-        except Exception as e:
-            logger.error(f"Error al generar reporte de cierre: {e}")
-            return {
-                "summary": {},
-                "total": 0.0,
-                "date": date_str,
-                "count": 0,
-                "error": str(e),
-                "user_id": user_id if user_id else None
-            }
-    
-    # ������ NUEVO: Método para obtener estadísticas del sistema
-    async def get_system_stats(self) -> dict:
-        """
-        Obtiene estadísticas generales del sistema.
-        
-        Returns:
-            Diccionario con estadísticas del sistema
-        """
-        try:
-            # Conteo total de comprobantes
-            total_receipts = self.receipts.count_documents({})
-            
-            # Conteo por usuario
-            pipeline = [
-                {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
-                {"$sort": {"count": -1}}
             ]
-            user_stats = list(self.receipts.aggregate(pipeline))
             
-            # Conteo por tipo
-            pipeline = [
-                {"$group": {"_id": "$tipo", "count": {"$sum": 1}}},
-                {"$sort": {"count": -1}}
-            ]
-            type_stats = list(self.receipts.aggregate(pipeline))
+            result = list(self.receipts.aggregate(pipeline))
             
-            return {
-                "total_receipts": total_receipts,
-                "users_with_receipts": len(user_stats),
-                "user_stats": user_stats,
-                "type_stats": type_stats
-            }
+            # Formatear resultado
+            stats = []
+            for item in result:
+                stats.append({
+                    "codigo_corresponsal": item["_id"],
+                    "nombre_corresponsal": item.get("nombre_corresponsal", "Sin nombre"),
+                    "nombre_local": item.get("nombre_local", "Sin local"),
+                    "total_comprobantes": item["total_comprobantes"],
+                    "valor_total": round(item["valor_total"], 2),
+                    "ultimo_comprobante": item.get("ultimo_comprobante")
+                })
+            
+            logger.info(f"Estadísticas generadas para {len(stats)} corresponsales")
+            return stats
+            
         except Exception as e:
-            logger.error(f"Error al obtener estadísticas del sistema: {e}")
-            return {
-                "total_receipts": 0,
-                "users_with_receipts": 0,
-                "user_stats": [],
-                "type_stats": [],
-                "error": str(e)
-            }
+            logger.error(f"Error al obtener estadísticas por corresponsal: {e}")
+            return []
+
+    # MÉTODOS EXISTENTES (mantenidos para compatibilidad)
+    def get_all_receipts(self) -> List[dict]:
+        """Método legacy - usar get_all_receipts_with_corresponsal_info"""
+        return self.get_all_receipts_with_corresponsal_info()
+
+    def get_receipts_by_date(self, date: str) -> List[dict]:
+        """Método legacy - usar get_receipts_by_date_with_corresponsal"""
+        return self.get_receipts_by_date_with_corresponsal(date)
