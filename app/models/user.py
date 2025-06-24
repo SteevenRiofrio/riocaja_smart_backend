@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-# app/models/user.py
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
@@ -35,9 +33,7 @@ class User(BaseModel):
 class UserProfile(BaseModel):
     codigo_corresponsal: str
     nombre_local: str
-    nombre_completo: str
-    password: str = Field(min_length=8)
-
+    
 class UserApprovalWithCode(BaseModel):
     user_id: str
     codigo_corresponsal: str

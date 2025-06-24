@@ -696,3 +696,35 @@ class UserService:
         except Exception as e:
             logger.error(f"Error en exportación de usuarios: {e}")
             return []
+         
+         
+           
+    def complete_user_profile_simple(self, user_id: str, nombre_local: str) -> bool:
+    """Completa el perfil del usuario SIN cambiar contraseña"""
+    try:
+        # Verificar que el usuario existe
+        user = self.users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return False
+        
+        # Actualizar solo el nombre local y marcar perfil como completo
+        result = self.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "$set": {
+                    "nombre_local": nombre_local,
+                    "perfil_completo": True,
+                    "fecha_perfil_completado": datetime.utcnow()
+                }
+            }
+        )
+        
+        success = result.modified_count > 0
+        if success:
+            logger.info(f"Perfil completado para usuario: {user_id}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Error al completar perfil: {e}")
+        return False   
