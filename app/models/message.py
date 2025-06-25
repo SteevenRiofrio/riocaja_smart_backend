@@ -14,7 +14,7 @@ class Mensaje(BaseModel):
     contenido: str
     tipo: TipoMensaje = TipoMensaje.informativo
     fecha_creacion: datetime = Field(default_factory=datetime.utcnow)
-    creado_por: str  # ID del administrador que creó el mensaje
-    visible_hasta: Optional[datetime] = None  # Fecha límite de visibilidad
+    creado_por: str  # ID del administrador que creÃ³ el mensaje
+    visible_hasta: Optional[datetime] = None  # Fecha lÃ­mite de visibilidad
     destinatarios: Optional[List[str]] = None  # Lista de IDs de usuarios, si es None, es para todos
-    leido_por: List[str] = []  # IDs de usuarios que han leído el mensaje
+    leido_por: List[str] = []  # IDs de usuarios que han leÃ­do el mensaje
