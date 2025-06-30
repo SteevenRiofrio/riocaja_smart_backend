@@ -203,7 +203,7 @@ class UserService:
             return []
 
   def create_admin_user(self, admin_data: dict):
-    """Crear usuario admin sin necesidad de aprobación"""
+    '''Crear usuario admin sin necesidad de aprobacion'''
     try:
         # Verificar si existe
         if self.users.find_one({"email": admin_data["email"]}):
