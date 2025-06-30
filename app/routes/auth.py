@@ -1,4 +1,4 @@
-# app/routes/auth.py - VERSIÓN CORREGIDA COMPLETA
+# app/routes/auth.py - VERSIÓN COMPLETA CON EMAIL DE LOGIN
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
@@ -7,8 +7,9 @@ from app.services.auth_service import create_access_token
 from app.middlewares.auth_middleware import get_current_user, role_required
 from app.models.user import UserProfile, UserApprovalWithCode
 from app.services.auth_service import refresh_access_token, create_refresh_token
-from app.services.email_service import EmailService
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 class UserRegister(BaseModel):
@@ -38,9 +39,8 @@ def register(user: UserRegister):
         print(f"Error en registro: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
-
 @router.post("/login")
-async def login(login_data: LoginData):
+def login(user: UserLogin):
     try:
         user_db = user_service.authenticate_user(user.email, user.password)
         if not user_db:
@@ -54,11 +54,28 @@ async def login(login_data: LoginData):
         }
         
         access_token = create_access_token(token_data)
-        refresh_token = create_refresh_token(token_data)  # ← NUEVO
+        refresh_token = create_refresh_token(token_data)
+        
+        # NUEVO: Enviar email de notificacion de login
+        try:
+            from app.services.email_service import EmailService
+            email_service = EmailService()
+            email_service.send_login_notification(
+                user_email=user_db['email'],
+                user_name=user_db['nombre'],
+                login_info={
+                    'rol': user_db['rol'],
+                    'email': user_db['email']
+                }
+            )
+            logger.info(f"Email de login enviado a: {user_db['email']}")
+        except Exception as email_error:
+            logger.warning(f"No se pudo enviar email de login: {email_error}")
+            # No fallar el login si el email falla
         
         return {
             "access_token": access_token,
-            "refresh_token": refresh_token,  # ← NUEVO
+            "refresh_token": refresh_token,
             "token_type": "bearer",
             "perfil_completo": user_db.get("perfil_completo", False),
             "codigo_corresponsal": user_db.get("codigo_corresponsal")
@@ -66,19 +83,8 @@ async def login(login_data: LoginData):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error en login: {e}")
         raise HTTPException(status_code=500, detail="Error de conexión")
-        try:
-            email_service = EmailService()
-            email_service.send_login_notification(
-                user_email=user['email'],
-                user_name=user['nombre'],
-                login_info={
-                    'rol': user['rol'],
-                    'email': user['email']
-                }
-            )
-        except Exception as email_error:
-            logger.warning(f"No se pudo enviar email de login: {email_error}")
 
 @router.get("/me")
 def me(user=Depends(get_current_user)):
@@ -89,12 +95,11 @@ def me(user=Depends(get_current_user)):
         if not user_data:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        # DEVOLVER DATOS COMPLETOS Y CORRECTOS DE LA BASE DE DATOS
         return {
             "success": True,
             "data": {
                 "_id": user_data["_id"],
-                "nombre": user_data["nombre"],  # NOMBRE REAL DE LA BD
+                "nombre": user_data["nombre"],
                 "email": user_data["email"],
                 "rol": user_data["rol"],
                 "estado": user_data.get("estado", "pendiente"),
@@ -179,6 +184,20 @@ async def approve_user_with_code(
         )
         
         if success:
+            # NUEVO: Enviar email de bienvenida al usuario aprobado
+            try:
+                user_info = user_service.get_user_info(approval.user_id)
+                if user_info:
+                    from app.services.email_service import EmailService
+                    email_service = EmailService()
+                    email_service.send_welcome_email(
+                        user_email=user_info['email'],
+                        user_name=user_info['nombre']
+                    )
+                    logger.info(f"Email de bienvenida enviado a: {user_info['email']}")
+            except Exception as email_error:
+                logger.warning(f"No se pudo enviar email de bienvenida: {email_error}")
+            
             return {"message": "Usuario aprobado exitosamente"}
         else:
             raise HTTPException(status_code=400, detail="Error al aprobar usuario")
@@ -204,7 +223,6 @@ def create_admin(admin_data: dict, current_user=Depends(role_required(["admin"])
 def setup_first_admin(admin_data: dict):
     """Crear primer admin del sistema (solo si no hay admins)"""
     try:
-        # Verificar que no hay admins existentes
         existing_admins = user_service.count_admins()
         if existing_admins > 0:
             raise HTTPException(status_code=400, detail="Ya existe un admin en el sistema")
@@ -221,16 +239,13 @@ def make_me_admin(request: dict):
         email = request.get("email")
         secret = request.get("secret_key")
         
-        # Verificación de seguridad
         if secret != "riocaja_admin_2025":
             raise HTTPException(status_code=403, detail="Clave secreta incorrecta")
         
-        # Buscar usuario
         user = user_service.users.find_one({"email": email})
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        # Convertir a admin
         success = user_service.make_user_admin(email)
         if success:
             return {"message": f"Usuario {email} convertido a ADMIN exitosamente"}
