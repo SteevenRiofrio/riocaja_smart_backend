@@ -1,7 +1,11 @@
 # app/services/email_service.py
 import random
+import smtplib
+import os
 import string
 from datetime import datetime, timedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from jinja2 import Template
 from app.config import (
@@ -17,7 +21,7 @@ class EmailService:
     def __init__(self):
         # Configuracion de conexion SMTP
         self.conf = ConnectionConfig(
-            MAIL_USERNAME=MAIL_USERNAME,
+            MAIL_USERN                                                                                                                                                                                                                                                                               AME=MAIL_USERNAME,
             MAIL_PASSWORD=MAIL_PASSWORD,
             MAIL_FROM=MAIL_FROM,
             MAIL_PORT=MAIL_PORT,
@@ -27,7 +31,68 @@ class EmailService:
             USE_CREDENTIALS=True,
             VALIDATE_CERTS=True
         )
-        self.fastmail = FastMail(self.conf)
+          def __init__(self):
+        # Configuración de Gmail SMTP
+        self.smtp_server = "smtp.gmail.com"
+        self.smtp_port = 587
+        self.email = os.getenv("SMTP_EMAIL", "riocaja.smart09@gmail.com")
+        self.password = os.getenv("SMTP_PASSWORD", "tu_app_password_aqui")
+    
+    def send_login_notification(self, user_email: str, user_name: str, login_info: dict):
+        """Enviar notificación de inicio de sesión"""
+        try:
+            # Crear mensaje
+            msg = MIMEMultipart()
+            msg['From'] = self.email
+            msg['To'] = user_email
+            msg['Subject'] = "🔐 Inicio de sesión - RíoCaja Smart"
+            
+            # Contenido del email
+            body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2e7d32;">🔐 Inicio de Sesión Detectado</h2>
+                    
+                    <p>Hola <strong>{user_name}</strong>,</p>
+                    
+                    <p>Se ha detectado un nuevo inicio de sesión en tu cuenta de RíoCaja Smart:</p>
+                    
+                    <div style="background-color: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p><strong>📅 Fecha y Hora:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
+                        <p><strong>👤 Usuario:</strong> {user_email}</p>
+                        <p><strong>🏢 Rol:</strong> {login_info.get('rol', 'Usuario').title()}</p>
+                        <p><strong>📱 Dispositivo:</strong> Aplicación Móvil</p>
+                    </div>
+                    
+                    <p>Si fuiste tú, puedes ignorar este mensaje.</p>
+                    <p><strong>Si NO fuiste tú</strong>, contacta inmediatamente al administrador.</p>
+                    
+                    <hr style="margin: 30px 0; border: 1px solid #ddd;">
+                    <p style="font-size: 12px; color: #666;">
+                        Este es un mensaje automático de seguridad de RíoCaja Smart.<br>
+                        No respondas a este correo.
+                    </p>
+                </div>
+            </body>
+            </html>
+            """
+            
+            msg.attach(MIMEText(body, 'html'))
+            
+            # Enviar email
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server.starttls()
+            server.login(self.email, self.password)
+            server.send_message(msg)
+            server.quit()
+            
+            logger.info(f"Email de login enviado a: {user_email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error enviando email de login: {e}")
+            return False
     
     def generate_reset_code(self) -> str:
         """Genera un codigo de recuperacion de 6 digitos"""

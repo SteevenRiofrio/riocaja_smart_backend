@@ -7,6 +7,7 @@ from app.services.auth_service import create_access_token
 from app.middlewares.auth_middleware import get_current_user, role_required
 from app.models.user import UserProfile, UserApprovalWithCode
 from app.services.auth_service import refresh_access_token, create_refresh_token
+from app.services.email_service import EmailService
 
 router = APIRouter()
 
@@ -39,7 +40,7 @@ def register(user: UserRegister):
 
 
 @router.post("/login")
-def login(user: UserLogin):
+async def login(login_data: LoginData):
     try:
         user_db = user_service.authenticate_user(user.email, user.password)
         if not user_db:
@@ -66,6 +67,18 @@ def login(user: UserLogin):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error de conexión")
+        try:
+            email_service = EmailService()
+            email_service.send_login_notification(
+                user_email=user['email'],
+                user_name=user['nombre'],
+                login_info={
+                    'rol': user['rol'],
+                    'email': user['email']
+                }
+            )
+        except Exception as email_error:
+            logger.warning(f"No se pudo enviar email de login: {email_error}")
 
 @router.get("/me")
 def me(user=Depends(get_current_user)):
