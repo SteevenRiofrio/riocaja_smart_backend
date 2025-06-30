@@ -12,8 +12,8 @@ class EmailService:
     def __init__(self):
         self.smtp_server = "smtp.gmail.com"
         self.smtp_port = 587
-        self.email = os.getenv("SMTP_EMAIL", "riocaja.smart09@gmail.com")
-        self.password = os.getenv("SMTP_PASSWORD", "espe@050702")
+        self.email = os.getenv("MAIL_USERNAME", "riocaja.smart09@gmail.com")
+        self.password = os.getenv("MAIL_PASSWORD", "fallback_password")
     
     def send_login_notification(self, user_email: str, user_name: str, login_info: dict):
         try:
