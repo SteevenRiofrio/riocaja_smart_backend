@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # MongoDB con timeouts extendidos y configuración robusta
-MONGO_URI = "mongodb://riocajasmart09:riocajas12345@cluster0-shard-00-00.ow7d1gr.mongodb.net:27017,cluster0-shard-00-01.ow7d1gr.mongodb.net:27017,cluster0-shard-00-02.ow7d1gr.mongodb.net:27017/riocaja_smart?ssl=true&replicaSet=atlas-14rkz9-shard-0&authSource=admin&retryWrites=true&w=majority&connectTimeoutMS=30000&socketTimeoutMS=30000&serverSelectionTimeoutMS=30000&maxIdleTimeMS=45000&waitQueueTimeoutMS=10000"
+MONGO_URI = "mongodb+srv://riocajasmart09:riocajas12345@cluster0.ow7d1gr.mongodb.net/riocaja_smart?retryWrites=true&w=majority&ssl=true&authSource=admin"
+
 
 DATABASE_NAME = "riocaja_smart"
 
