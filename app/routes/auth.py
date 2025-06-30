@@ -36,6 +36,22 @@ def register(user: UserRegister):
         print(f"Error en registro: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
+@router.post("/refresh")
+def refresh_token(refresh_token: str):
+    """Renovar access token usando refresh token"""
+    try:
+        new_access_token = refresh_access_token(refresh_token)
+        if not new_access_token:
+            raise HTTPException(status_code=401, detail="Refresh token inválido")
+        
+        return {
+            "access_token": new_access_token,
+            "token_type": "bearer"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Error renovando token")
+
+# MODIFICAR login para devolver refresh token también
 @router.post("/login")
 def login(user: UserLogin):
     try:
@@ -49,10 +65,13 @@ def login(user: UserLogin):
             "rol": user_db["rol"],
             "perfil_completo": user_db.get("perfil_completo", False)
         }
-        token = create_access_token(token_data)
+        
+        access_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
         
         return {
-            "access_token": token, 
+            "access_token": access_token,
+            "refresh_token": refresh_token,  # ✅ NUEVO
             "token_type": "bearer",
             "perfil_completo": user_db.get("perfil_completo", False),
             "codigo_corresponsal": user_db.get("codigo_corresponsal")
@@ -60,8 +79,7 @@ def login(user: UserLogin):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error en login: {e}")
-        raise HTTPException(status_code=500, detail="Error de conexión con la base de datos")
+        raise HTTPException(status_code=500, detail="Error de conexión")
 
 @router.get("/me")
 def me(user=Depends(get_current_user)):
@@ -171,3 +189,36 @@ async def approve_user_with_code(
     except Exception as e:
         print(f"Error en approve-user: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@router.post("/create-admin")
+def create_admin(admin_data: dict, current_user=Depends(role_required(["admin"]))):
+    """Crear usuario admin directamente (solo admins pueden crear otros admins)"""
+    try:
+        admin_user = {
+            "nombre": admin_data["nombre"],
+            "email": admin_data["email"],
+            "password": admin_data["password"],
+            "rol": "admin"
+        }
+        
+        result = user_service.create_admin_user(admin_user)
+        return {"message": "Admin creado exitosamente", "user_id": result}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# PRIMER ADMIN (ejecutar UNA SOLA VEZ)
+@router.post("/setup-first-admin")
+def setup_first_admin(admin_data: dict):
+    """Crear primer admin del sistema (solo si no hay admins)"""
+    try:
+        # Verificar que no hay admins existentes
+        existing_admins = user_service.count_admins()
+        if existing_admins > 0:
+            raise HTTPException(status_code=400, detail="Ya existe un admin en el sistema")
+        
+        result = user_service.create_first_admin(admin_data)
+        return {"message": "Primer admin creado exitosamente"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
