@@ -202,7 +202,7 @@ class UserService:
             logger.error(f"Error al obtener todos los usuarios: {e}")
             return []
 
-  def create_admin_user(self, admin_data: dict):
+    def create_admin_user(self, admin_data: dict):
     '''Crear usuario admin sin necesidad de aprobacion'''
     try:
         # Verificar si existe
