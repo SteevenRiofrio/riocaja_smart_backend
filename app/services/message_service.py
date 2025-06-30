@@ -1,5 +1,3 @@
-        return result.deleted_count > 0
-# app/services/message_service.py
 import logging
 from datetime import datetime
 from typing import List, Optional, Dict
