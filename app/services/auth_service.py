@@ -49,3 +49,13 @@ def verify_token(token: str):
         return None
     except JWTError:
         return None
+
+def decode_token(token: str):
+    """Decodificar y verificar token JWT"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except ExpiredSignatureError:
+        return None
+    except JWTError:
+        return None
