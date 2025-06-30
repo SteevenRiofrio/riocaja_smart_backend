@@ -222,3 +222,43 @@ def setup_first_admin(admin_data: dict):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/make-me-admin")
+def make_me_admin(request: dict):
+    """Convertir usuario existente en admin (solo una vez)"""
+    try:
+        email = request.get("email")
+        secret = request.get("secret_key")
+        
+        # Verificación de seguridad
+        if secret != "make_me_admin_now":
+            raise HTTPException(status_code=403, detail="Acceso denegado")
+        
+        # Buscar usuario
+        user = user_service.users.find_one({"email": email})
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        # Actualizar a admin
+        result = user_service.users.update_one(
+            {"email": email},
+            {
+                "$set": {
+                    "rol": "admin",
+                    "estado": "activo",
+                    "perfil_completo": True,
+                    "codigo_corresponsal": "ADMIN001",
+                    "nombre_local": "Administración Principal"
+                }
+            }
+        )
+        
+        if result.modified_count > 0:
+            return {"message": f"Usuario {email} convertido a SUPER ADMIN exitosamente"}
+        else:
+            raise HTTPException(status_code=400, detail="No se pudo actualizar el usuario")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
