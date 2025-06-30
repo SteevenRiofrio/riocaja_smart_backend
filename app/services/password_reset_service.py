@@ -16,7 +16,7 @@ from app.config import (
     MAIL_FROM, MAIL_FROM_NAME, MAIL_SERVER, MAIL_PORT,
     MAIL_STARTTLS, RESET_CODE_EXPIRE_MINUTES, RESET_CODE_LENGTH
 )
-from app.services.crypto_service import hash_password
+from app.utils.security import hash_password
 
 logger = logging.getLogger(__name__)
 
