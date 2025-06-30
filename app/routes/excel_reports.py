@@ -1,7 +1,4 @@
 # app/routes/excel_reports.py
-# AGREGAR EN app/main.py:
-# from app.routes import excel_reports
-# app.include_router(excel_reports.router, prefix=f"{API_PREFIX}/reports/excel", tags=["excel-reports"])
 from fastapi import APIRouter, HTTPException, Depends, Query, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -73,7 +70,7 @@ async def get_available_corresponsales(current_user=Depends(get_current_user)):
         if user_role not in ["admin", "operador"]:
             raise HTTPException(
                 status_code=403, 
-                detail="No tiene permisos para ver esta información"
+                detail="No tiene permisos para ver esta informacion"
             )
         
         corresponsales = excel_service.get_available_corresponsales_for_reports()
@@ -95,7 +92,7 @@ async def get_report_statistics(
     current_user=Depends(get_current_user)
 ):
     """
-    Obtiene estadísticas rápidas del reporte antes de generarlo
+    Obtiene estadisticas rapidas del reporte antes de generarlo
     """
     try:
         user_id = current_user.get("sub")
@@ -117,7 +114,7 @@ async def get_report_statistics(
                 detail="No tiene permisos para filtrar por corresponsal"
             )
         
-        # Obtener estadísticas
+        # Obtener estadisticas
         stats = excel_service.get_report_statistics(
             start_date=request.start_date,
             end_date=request.end_date,
@@ -130,7 +127,7 @@ async def get_report_statistics(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error obteniendo estadísticas: {e}")
+        logger.error(f"Error obteniendo estadisticas: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.post("/generate")
@@ -169,7 +166,7 @@ async def generate_excel_report(
         if request.report_type not in valid_types:
             raise HTTPException(
                 status_code=400,
-                detail=f"Tipo de reporte inválido. Tipos válidos: {', '.join(valid_types)}"
+                detail=f"Tipo de reporte invalido. Tipos validos: {', '.join(valid_types)}"
             )
         
         # Generar el archivo Excel
@@ -217,14 +214,14 @@ async def quick_download_report(
     start_date: str = Query(..., description="Fecha inicio YYYY-MM-DD"),
     end_date: str = Query(..., description="Fecha fin YYYY-MM-DD"),
     report_type: str = Query("general", description="Tipo de reporte"),
-    codigo_corresponsal: Optional[str] = Query(None, description="Código de corresponsal"),
+    codigo_corresponsal: Optional[str] = Query(None, description="Codigo de corresponsal"),
     current_user=Depends(get_current_user)
 ):
     """
-    Descarga rápida de reporte Excel mediante GET (para enlaces directos)
+    Descarga rapida de reporte Excel mediante GET (para enlaces directos)
     """
     try:
-        # Convertir a request model para reutilizar la lógica
+        # Convertir a request model para reutilizar la logica
         request = ExcelReportRequest(
             start_date=start_date,
             end_date=end_date,
@@ -235,8 +232,8 @@ async def quick_download_report(
         return await generate_excel_report(request, current_user)
         
     except Exception as e:
-        logger.error(f"Error en descarga rápida: {e}")
-        raise HTTPException(status_code=500, detail="Error en descarga rápida")
+        logger.error(f"Error en descarga rapida: {e}")
+        raise HTTPException(status_code=500, detail="Error en descarga rapida")
 
 @router.get("/templates")
 async def get_report_templates(current_user=Depends(get_current_user)):
@@ -250,7 +247,7 @@ async def get_report_templates(current_user=Depends(get_current_user)):
             {
                 "id": "diario_hoy",
                 "name": "Reporte Diario - Hoy",
-                "description": "Transacciones del día actual",
+                "description": "Transacciones del dia actual",
                 "type": "daily",
                 "date_range": "hoy",
                 "icon": "today"
@@ -273,8 +270,8 @@ async def get_report_templates(current_user=Depends(get_current_user)):
             },
             {
                 "id": "ultimos_30_dias",
-                "name": "Reporte Últimos 30 Días",
-                "description": "Análisis de los últimos 30 días",
+                "name": "Reporte Ultimos 30 Dias",
+                "description": "Analisis de los ultimos 30 dias",
                 "type": "general",
                 "date_range": "ultimos_30_dias",
                 "icon": "trending_up"
@@ -287,7 +284,7 @@ async def get_report_templates(current_user=Depends(get_current_user)):
                 {
                     "id": "trimestral",
                     "name": "Reporte Trimestral",
-                    "description": "Análisis completo del último trimestre",
+                    "description": "Analisis completo del ultimo trimestre",
                     "type": "monthly",
                     "date_range": "ultimo_trimestre",
                     "icon": "bar_chart"
@@ -295,7 +292,7 @@ async def get_report_templates(current_user=Depends(get_current_user)):
                 {
                     "id": "comparativo_semanal",
                     "name": "Comparativo Semanal",
-                    "description": "Comparación semana actual vs anterior",
+                    "description": "Comparacion semana actual vs anterior",
                     "type": "weekly",
                     "date_range": "custom",
                     "icon": "compare_arrows"
@@ -324,7 +321,7 @@ async def generate_from_template(
         # Obtener opciones de fecha
         date_options = excel_service.get_date_range_options()
         
-        # Mapear template a configuración
+        # Mapear template a configuracion
         template_configs = {
             "diario_hoy": {
                 "date_range": "hoy",
@@ -373,18 +370,18 @@ async def generate_from_template(
 @router.get("/export-formats")
 async def get_export_formats(current_user=Depends(get_current_user)):
     """
-    Obtiene formatos de exportación disponibles
+    Obtiene formatos de exportacion disponibles
     """
     try:
         formats = [
             {
                 "format": "xlsx",
                 "name": "Excel Avanzado",
-                "description": "Archivo Excel con múltiples hojas, gráficos y análisis",
+                "description": "Archivo Excel con multiples hojas, graficos y analisis",
                 "icon": "table_chart",
                 "features": [
-                    "Múltiples hojas de análisis",
-                    "Gráficos automáticos",
+                    "Multiples hojas de analisis",
+                    "Graficos automaticos",
                     "Formato profesional",
                     "Filtros y ordenamiento"
                 ]
@@ -395,9 +392,9 @@ async def get_export_formats(current_user=Depends(get_current_user)):
                 "description": "Archivo CSV para importar en otras aplicaciones",
                 "icon": "description",
                 "features": [
-                    "Compatible con cualquier aplicación",
+                    "Compatible con cualquier aplicacion",
                     "Datos en formato plano",
-                    "Fácil importación"
+                    "Facil importacion"
                 ]
             }
         ]
@@ -424,7 +421,7 @@ async def test_excel_service(current_user=Depends(get_current_user)):
         if not __debug__:
             raise HTTPException(status_code=404, detail="Not found")
         
-        # Obtener estadísticas básicas
+        # Obtener estadisticas basicas
         today = datetime.now().strftime("%Y-%m-%d")
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         
