@@ -1,62 +1,61 @@
-# app/services/auth_service.py - COMPLETO CON decode_token
-from datetime import datetime, timedelta
-from typing import Optional
-from jose import JWTError, jwt, ExpiredSignatureError
-from app.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional, List
+from app.services.auth_service import decode_token
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """Crear token de acceso JWT"""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+security = HTTPBearer()
 
-def create_refresh_token(data: dict):
-    """Crear refresh token con mayor duración (30 días)"""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=30)  # 30 días
-    to_encode.update({"exp": expire, "type": "refresh"})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-def refresh_access_token(refresh_token: str):
-    """Generar nuevo access token desde refresh token"""
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Obtener usuario actual desde el token JWT"""
     try:
-        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("type") != "refresh":
-            return None
+        token = credentials.credentials
+        payload = decode_token(token)
         
-        # Crear nuevo access token
-        user_data = {
-            "sub": payload.get("sub"),
-            "email": payload.get("email"),
-            "rol": payload.get("rol"),
-            "perfil_completo": payload.get("perfil_completo")
-        }
-        return create_access_token(user_data)
-    except (JWTError, ExpiredSignatureError):
-        return None
-
-def decode_token(token: str):
-    """Decodificar y verificar token JWT"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido o expirado",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
         return payload
-    except ExpiredSignatureError:
-        return None
-    except JWTError:
-        return None
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-def verify_token(token: str):
-    """Verificar si un token es válido"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except ExpiredSignatureError:
-        return None
-    except JWTError:
-        return None
+def role_required(required_roles: List[str]):
+    """Decorator para verificar que el usuario tenga uno de los roles requeridos"""
+    def role_checker(current_user: dict = Depends(get_current_user)):
+        user_role = current_user.get("rol")
+        
+        if user_role not in required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene permisos para acceder a este recurso"
+            )
+        
+        return current_user
+    
+    return role_checker
+
+def admin_required(current_user: dict = Depends(get_current_user)):
+    """Verificar que el usuario sea admin"""
+    if current_user.get("rol") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requieren permisos de administrador"
+        )
+    return current_user
+
+def admin_or_operador_required(current_user: dict = Depends(get_current_user)):
+    """Verificar que el usuario sea admin u operador"""
+    user_role = current_user.get("rol")
+    if user_role not in ["admin", "operador"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requieren permisos de administrador u operador"
+        )
+    return current_user
