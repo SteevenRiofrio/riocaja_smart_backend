@@ -6,6 +6,7 @@ from app.services.user_service import UserService
 from app.services.auth_service import create_access_token
 from app.middlewares.auth_middleware import get_current_user, role_required
 from app.models.user import UserProfile, UserApprovalWithCode
+from app.services.auth_service import refresh_access_token, create_refresh_token
 
 router = APIRouter()
 
@@ -36,22 +37,7 @@ def register(user: UserRegister):
         print(f"Error en registro: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
-@router.post("/refresh")
-def refresh_token(refresh_token: str):
-    """Renovar access token usando refresh token"""
-    try:
-        new_access_token = refresh_access_token(refresh_token)
-        if not new_access_token:
-            raise HTTPException(status_code=401, detail="Refresh token inválido")
-        
-        return {
-            "access_token": new_access_token,
-            "token_type": "bearer"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Error renovando token")
 
-# MODIFICAR login para devolver refresh token también
 @router.post("/login")
 def login(user: UserLogin):
     try:
@@ -67,11 +53,11 @@ def login(user: UserLogin):
         }
         
         access_token = create_access_token(token_data)
-        refresh_token = create_refresh_token(token_data)
+        refresh_token = create_refresh_token(token_data)  # ← NUEVO
         
         return {
             "access_token": access_token,
-            "refresh_token": refresh_token,  # ✅ NUEVO
+            "refresh_token": refresh_token,  # ← NUEVO
             "token_type": "bearer",
             "perfil_completo": user_db.get("perfil_completo", False),
             "codigo_corresponsal": user_db.get("codigo_corresponsal")
@@ -194,20 +180,13 @@ async def approve_user_with_code(
 def create_admin(admin_data: dict, current_user=Depends(role_required(["admin"]))):
     """Crear usuario admin directamente (solo admins pueden crear otros admins)"""
     try:
-        admin_user = {
-            "nombre": admin_data["nombre"],
-            "email": admin_data["email"],
-            "password": admin_data["password"],
-            "rol": "admin"
-        }
-        
-        result = user_service.create_admin_user(admin_user)
+        result = user_service.create_admin_user(admin_data)
         return {"message": "Admin creado exitosamente", "user_id": result}
-        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# PRIMER ADMIN (ejecutar UNA SOLA VEZ)
 @router.post("/setup-first-admin")
 def setup_first_admin(admin_data: dict):
     """Crear primer admin del sistema (solo si no hay admins)"""
@@ -219,46 +198,51 @@ def setup_first_admin(admin_data: dict):
         
         result = user_service.create_first_admin(admin_data)
         return {"message": "Primer admin creado exitosamente"}
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/make-me-admin")
 def make_me_admin(request: dict):
-    """Convertir usuario existente en admin (solo una vez)"""
+    """Convertir usuario existente en admin (solo para setup inicial)"""
     try:
         email = request.get("email")
         secret = request.get("secret_key")
         
         # Verificación de seguridad
-        if secret != "make_me_admin_now":
-            raise HTTPException(status_code=403, detail="Acceso denegado")
+        if secret != "riocaja_admin_2025":
+            raise HTTPException(status_code=403, detail="Clave secreta incorrecta")
         
         # Buscar usuario
         user = user_service.users.find_one({"email": email})
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        # Actualizar a admin
-        result = user_service.users.update_one(
-            {"email": email},
-            {
-                "$set": {
-                    "rol": "admin",
-                    "estado": "activo",
-                    "perfil_completo": True,
-                    "codigo_corresponsal": "ADMIN001",
-                    "nombre_local": "Administración Principal"
-                }
-            }
-        )
-        
-        if result.modified_count > 0:
-            return {"message": f"Usuario {email} convertido a SUPER ADMIN exitosamente"}
+        # Convertir a admin
+        success = user_service.make_user_admin(email)
+        if success:
+            return {"message": f"Usuario {email} convertido a ADMIN exitosamente"}
         else:
             raise HTTPException(status_code=400, detail="No se pudo actualizar el usuario")
-            
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/refresh")
+def refresh_token(request: dict):
+    """Renovar access token usando refresh token"""
+    try:
+        refresh_token_str = request.get("refresh_token")
+        if not refresh_token_str:
+            raise HTTPException(status_code=400, detail="Refresh token requerido")
+        
+        new_access_token = refresh_access_token(refresh_token_str)
+        if not new_access_token:
+            raise HTTPException(status_code=401, detail="Refresh token inválido o expirado")
+        
+        return {
+            "access_token": new_access_token,
+            "token_type": "bearer"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Error renovando token")

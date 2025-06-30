@@ -202,26 +202,29 @@ class UserService:
             logger.error(f"Error al obtener todos los usuarios: {e}")
             return []
 
-    def create_admin_user(self, admin_data: dict):
+  def create_admin_user(self, admin_data: dict):
     """Crear usuario admin sin necesidad de aprobación"""
     try:
         # Verificar si existe
         if self.users.find_one({"email": admin_data["email"]}):
             raise ValueError("El email ya está registrado")
         
+        from app.utils.password_utils import hash_password
+        
         admin_user = {
             "nombre": admin_data["nombre"],
             "email": admin_data["email"],
             "password_hash": hash_password(admin_data["password"]),
             "rol": "admin",
-            "estado": "activo",  # ✅ Activo inmediatamente
-            "perfil_completo": True,  # ✅ Perfil completo
+            "estado": "activo",  
+            "perfil_completo": True,  
             "fecha_registro": datetime.utcnow(),
-            "codigo_corresponsal": "ADMIN",  # ✅ Código especial
+            "codigo_corresponsal": "ADMIN",  
             "nombre_local": "Administración"
         }
         
         result = self.users.insert_one(admin_user)
+        logger.info(f"Admin creado: {admin_data['email']}")
         return str(result.inserted_id)
         
     except Exception as e:
@@ -239,3 +242,23 @@ def count_admins(self):
     except Exception as e:
         logger.error(f"Error contando admins: {e}")
         return 0
+
+def make_user_admin(self, email: str):
+    """Convertir usuario existente en admin"""
+    try:
+        result = self.users.update_one(
+            {"email": email},
+            {
+                "$set": {
+                    "rol": "admin",
+                    "estado": "activo",
+                    "perfil_completo": True,
+                    "codigo_corresponsal": "ADMIN001",
+                    "nombre_local": "Administración Principal"
+                }
+            }
+        )
+        return result.modified_count > 0
+    except Exception as e:
+        logger.error(f"Error convirtiendo a admin: {e}")
+        return False
