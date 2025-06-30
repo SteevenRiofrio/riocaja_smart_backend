@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
-from app.services.message_service import mesage_service
+from app.services.message_service import MessageService
 from app.middlewares.auth_middleware import get_current_user, role_required
 
 router = APIRouter()
