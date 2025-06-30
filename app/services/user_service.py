@@ -1,4 +1,4 @@
-# app/services/user_service.py - VERSIÓN CORREGIDA CON MEJOR CONEXIÓN
+# app/services/user_service.py - VERSIÓN COMPLETA Y CORREGIDA
 import logging
 from datetime import datetime
 from typing import List, Optional
@@ -202,14 +202,14 @@ class UserService:
             logger.error(f"Error al obtener todos los usuarios: {e}")
             return []
 
-def create_admin_user(self, admin_data: dict):
+    def create_admin_user(self, admin_data: dict):
         """Crear usuario admin sin necesidad de aprobacion"""
         try:
+            self._ensure_connection()
+            
             # Verificar si existe
             if self.users.find_one({"email": admin_data["email"]}):
                 raise ValueError("El email ya está registrado")
-            
-            from app.utils.password_utils import hash_password
             
             admin_user = {
                 "nombre": admin_data["nombre"],
@@ -238,27 +238,30 @@ def create_admin_user(self, admin_data: dict):
     def count_admins(self):
         """Contar admins existentes"""
         try:
+            self._ensure_connection()
             return self.users.count_documents({"rol": "admin"})
         except Exception as e:
             logger.error(f"Error contando admins: {e}")
             return 0
 
-def make_user_admin(self, email: str):
-    """Convertir usuario existente en admin"""
-    try:
-        result = self.users.update_one(
-            {"email": email},
-            {
-                "$set": {
-                    "rol": "admin",
-                    "estado": "activo",
-                    "perfil_completo": True,
-                    "codigo_corresponsal": "ADMIN001",
-                    "nombre_local": "Administración Principal"
+    def make_user_admin(self, email: str):
+        """Convertir usuario existente en admin"""
+        try:
+            self._ensure_connection()
+            
+            result = self.users.update_one(
+                {"email": email},
+                {
+                    "$set": {
+                        "rol": "admin",
+                        "estado": "activo",
+                        "perfil_completo": True,
+                        "codigo_corresponsal": "ADMIN001",
+                        "nombre_local": "Administración Principal"
+                    }
                 }
-            }
-        )
-        return result.modified_count > 0
-    except Exception as e:
-        logger.error(f"Error convirtiendo a admin: {e}")
-        return False
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            logger.error(f"Error convirtiendo a admin: {e}")
+            return False
