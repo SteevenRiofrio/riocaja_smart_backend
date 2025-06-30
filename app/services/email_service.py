@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class EmailService:
     def __init__(self):
-        # Configuración de conexión SMTP
+        # Configuracion de conexion SMTP
         self.conf = ConnectionConfig(
             MAIL_USERNAME=MAIL_USERNAME,
             MAIL_PASSWORD=MAIL_PASSWORD,
@@ -30,24 +30,24 @@ class EmailService:
         self.fastmail = FastMail(self.conf)
     
     def generate_reset_code(self) -> str:
-        """Genera un código de recuperación de 6 dígitos"""
+        """Genera un codigo de recuperacion de 6 digitos"""
         return ''.join(random.choices(string.digits, k=RESET_CODE_LENGTH))
     
     def get_reset_code_expiry(self) -> datetime:
-        """Obtiene la fecha de expiración del código"""
+        """Obtiene la fecha de expiracion del codigo"""
         return datetime.utcnow() + timedelta(minutes=RESET_CODE_EXPIRE_MINUTES)
     
     async def send_password_reset_email(self, email: str, name: str, reset_code: str) -> bool:
         """
-        Envía email de recuperación de contraseña
+        Envia email de recuperacion de contraseÃ±a
         
         Args:
             email: Email del usuario
             name: Nombre del usuario
-            reset_code: Código de recuperación generado
+            reset_code: Codigo de recuperacion generado
             
         Returns:
-            bool: True si se envió correctamente, False en caso contrario
+            bool: True si se envio correctamente, False en caso contrario
         """
         try:
             # Template HTML para el email
@@ -57,7 +57,7 @@ class EmailService:
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Recuperación de Contraseña - RíoCaja Smart</title>
+                <title>Recuperacion de ContraseÃ±a - RioCaja Smart</title>
                 <style>
                     body {
                         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -146,54 +146,54 @@ class EmailService:
             <body>
                 <div class="container">
                     <div class="header">
-                        <h1>?? RíoCaja Smart</h1>
-                        <p>Recuperación de Contraseña</p>
+                        <h1>RioCaja Smart</h1>
+                        <p>Recuperacion de ContraseÃ±a</p>
                     </div>
                     
                     <div class="content">
                         <div class="greeting">
-                            ¡Hola {{ name }}! ??
+                            Hola {{ name }}!
                         </div>
                         
-                        <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong>RíoCaja Smart</strong>.</p>
+                        <p>Recibimos una solicitud para restablecer la contraseÃ±a de tu cuenta en <strong>RioCaja Smart</strong>.</p>
                         
                         <div class="code-container">
-                            <div class="code-label">Tu código de verificación es:</div>
+                            <div class="code-label">Tu codigo de verificacion es:</div>
                             <div class="code">{{ reset_code }}</div>
                             <div style="font-size: 12px; color: #666; margin-top: 10px;">
-                                Este código <span class="expiry">expira en 10 minutos</span>
+                                Este codigo <span class="expiry">expira en 10 minutos</span>
                             </div>
                         </div>
                         
                         <div class="instructions">
-                            <h3>?? Instrucciones:</h3>
+                            <h3>Instrucciones:</h3>
                             <ol>
-                                <li>Abre la aplicación RíoCaja Smart</li>
-                                <li>Ingresa este código en la pantalla de verificación</li>
-                                <li>Crea tu nueva contraseña</li>
-                                <li>¡Listo! Ya puedes acceder con tu nueva contraseña</li>
+                                <li>Abre la aplicacion RioCaja Smart</li>
+                                <li>Ingresa este codigo en la pantalla de verificacion</li>
+                                <li>Crea tu nueva contraseÃ±a</li>
+                                <li>Listo! Ya puedes acceder con tu nueva contraseÃ±a</li>
                             </ol>
                         </div>
                         
                         <div class="warning">
-                            <strong>?? Importante:</strong><br>
-                            • Si no solicitaste este cambio, ignora este mensaje<br>
-                            • No compartas este código con nadie<br>
-                            • El código expira automáticamente en 10 minutos<br>
-                            • Solo puedes usar este código una vez
+                            <strong>Importante:</strong><br>
+                            Si no solicitaste este cambio, ignora este mensaje<br>
+                            No compartas este codigo con nadie<br>
+                            El codigo expira automaticamente en 10 minutos<br>
+                            Solo puedes usar este codigo una vez
                         </div>
                         
                         <p>Si tienes problemas, contacta al administrador de tu sistema.</p>
                         
                         <p style="margin-top: 30px; color: #666;">
                             Saludos,<br>
-                            <strong>El equipo de RíoCaja Smart</strong>
+                            <strong>El equipo de RioCaja Smart</strong>
                         </p>
                     </div>
                     
                     <div class="footer">
-                        <p>Este es un mensaje automático, por favor no respondas a este correo.</p>
-                        <p>© 2025 RíoCaja Smart - Sistema de Gestión de Comprobantes CNB</p>
+                        <p>Este es un mensaje automatico, por favor no respondas a este correo.</p>
+                        <p>2025 RioCaja Smart - Sistema de Gestion de Comprobantes CNB</p>
                     </div>
                 </div>
             </body>
@@ -209,7 +209,7 @@ class EmailService:
             
             # Crear mensaje
             message = MessageSchema(
-                subject="?? Recuperación de Contraseña - RíoCaja Smart",
+                subject="Recuperacion de ContraseÃ±a - RioCaja Smart",
                 recipients=[email],
                 body=html_content,
                 subtype="html"
@@ -218,23 +218,23 @@ class EmailService:
             # Enviar email
             await self.fastmail.send_message(message)
             
-            logger.info(f"Email de recuperación enviado exitosamente a: {email}")
+            logger.info(f"Email de recuperacion enviado exitosamente a: {email}")
             return True
             
         except Exception as e:
-            logger.error(f"Error enviando email de recuperación a {email}: {str(e)}")
+            logger.error(f"Error enviando email de recuperacion a {email}: {str(e)}")
             return False
     
     async def send_password_changed_notification(self, email: str, name: str) -> bool:
         """
-        Envía notificación de que la contraseña fue cambiada exitosamente
+        Envia notificacion de que la contraseÃ±a fue cambiada exitosamente
         
         Args:
             email: Email del usuario
             name: Nombre del usuario
             
         Returns:
-            bool: True si se envió correctamente, False en caso contrario
+            bool: True si se envio correctamente, False en caso contrario
         """
         try:
             html_template = """
@@ -243,7 +243,7 @@ class EmailService:
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Contraseña Actualizada - RíoCaja Smart</title>
+                <title>ContraseÃ±a Actualizada - RioCaja Smart</title>
                 <style>
                     body {
                         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -287,39 +287,39 @@ class EmailService:
             <body>
                 <div class="container">
                     <div class="header">
-                        <h1>?? RíoCaja Smart</h1>
-                        <p>Contraseña Actualizada</p>
+                        <h1>RioCaja Smart</h1>
+                        <p>ContraseÃ±a Actualizada</p>
                     </div>
                     
                     <div class="content">
-                        <div class="success-icon">?</div>
+                        <div class="success-icon">âœ“</div>
                         
-                        <h2 style="text-align: center; color: #4CAF50;">¡Contraseña Actualizada Exitosamente!</h2>
+                        <h2 style="text-align: center; color: #4CAF50;">ContraseÃ±a Actualizada Exitosamente!</h2>
                         
                         <p>Hola <strong>{{ name }}</strong>,</p>
                         
-                        <p>Te confirmamos que tu contraseña ha sido actualizada correctamente en <strong>RíoCaja Smart</strong>.</p>
+                        <p>Te confirmamos que tu contraseÃ±a ha sido actualizada correctamente en <strong>RioCaja Smart</strong>.</p>
                         
                         <div style="background-color: #e8f5e8; border: 1px solid #4CAF50; border-radius: 5px; padding: 15px; margin: 20px 0;">
-                            <strong>? Cambio realizado el:</strong> {{ timestamp }}<br>
-                            <strong>?? Cuenta:</strong> {{ email }}
+                            <strong>Cambio realizado el:</strong> {{ timestamp }}<br>
+                            <strong>Cuenta:</strong> {{ email }}
                         </div>
                         
-                        <p>Ya puedes iniciar sesión con tu nueva contraseña.</p>
+                        <p>Ya puedes iniciar sesion con tu nueva contraseÃ±a.</p>
                         
                         <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
-                            <strong>?? Si no realizaste este cambio:</strong><br>
-                            Contacta inmediatamente al administrador de tu sistema, ya que alguien más podría haber accedido a tu cuenta.
+                            <strong>Si no realizaste este cambio:</strong><br>
+                            Contacta inmediatamente al administrador de tu sistema, ya que alguien mas podria haber accedido a tu cuenta.
                         </div>
                         
                         <p style="margin-top: 30px;">
                             Saludos,<br>
-                            <strong>El equipo de RíoCaja Smart</strong>
+                            <strong>El equipo de RioCaja Smart</strong>
                         </p>
                     </div>
                     
                     <div class="footer">
-                        <p>© 2025 RíoCaja Smart - Sistema de Gestión de Comprobantes CNB</p>
+                        <p>2025 RioCaja Smart - Sistema de Gestion de Comprobantes CNB</p>
                     </div>
                 </div>
             </body>
@@ -334,7 +334,7 @@ class EmailService:
             )
             
             message = MessageSchema(
-                subject="? Contraseña actualizada - RíoCaja Smart",
+                subject="ContraseÃ±a actualizada - RioCaja Smart",
                 recipients=[email],
                 body=html_content,
                 subtype="html"
@@ -342,9 +342,9 @@ class EmailService:
             
             await self.fastmail.send_message(message)
             
-            logger.info(f"Notificación de cambio de contraseña enviada a: {email}")
+            logger.info(f"Notificacion de cambio de contraseÃ±a enviada a: {email}")
             return True
             
         except Exception as e:
-            logger.error(f"Error enviando notificación a {email}: {str(e)}")
+            logger.error(f"Error enviando notificacion a {email}: {str(e)}")
             return False
