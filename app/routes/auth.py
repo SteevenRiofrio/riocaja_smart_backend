@@ -22,6 +22,10 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class ChangeUserStateRequest(BaseModel):
+    user_id: str
+    state: str
+
 user_service = UserService()
 
 @router.post("/register")
@@ -293,3 +297,42 @@ def refresh_token(request: dict):
         }
     except Exception as e:
         raise HTTPException(status_code=401, detail="Error renovando token")
+
+
+@router.put("/change-state")
+async def change_user_state(
+    request: ChangeUserStateRequest,
+    current_user=Depends(role_required(["admin", "operador"]))
+):
+    """Cambiar estado de un usuario (solo admin y operador)"""
+    try:
+        # Validar estados permitidos
+        valid_states = ["activo", "suspendido", "inactivo", "pendiente"]
+        if request.state not in valid_states:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Estado inválido. Estados permitidos: {valid_states}"
+            )
+        
+        # Cambiar estado en la base de datos
+        success = user_service.change_user_state(request.user_id, request.state)
+        
+        if success:
+            admin_id = current_user.get("sub")
+            logger.info(f"Admin {admin_id} cambió estado del usuario {request.user_id} a {request.state}")
+            
+            return {
+                "success": True,
+                "message": f"Estado del usuario cambiado a {request.state}"
+            }
+        else:
+            raise HTTPException(
+                status_code=404, 
+                detail="Usuario no encontrado o no se pudo actualizar"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en change-state: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")

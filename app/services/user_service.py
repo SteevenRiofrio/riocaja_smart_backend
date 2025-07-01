@@ -265,3 +265,37 @@ class UserService:
         except Exception as e:
             logger.error(f"Error convirtiendo a admin: {e}")
             return False
+
+    def change_user_state(self, user_id: str, new_state: str):
+    """Cambiar estado de un usuario"""
+    try:
+        self._ensure_connection()
+        
+        # Validar que el usuario existe
+        user = self.users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            logger.warning(f"Usuario no encontrado: {user_id}")
+            return False
+        
+        # Actualizar estado
+        result = self.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "$set": {
+                    "estado": new_state,
+                    "estado_actualizado_en": datetime.utcnow()
+                }
+            }
+        )
+        
+        success = result.modified_count > 0
+        if success:
+            logger.info(f"Estado del usuario {user_id} cambiado a {new_state}")
+        else:
+            logger.warning(f"No se pudo cambiar estado del usuario {user_id}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Error al cambiar estado del usuario {user_id}: {e}")
+        return False
