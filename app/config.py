@@ -24,7 +24,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
 # Configuración de EMAIL
 MAIL_USERNAME = os.getenv("MAIL_USERNAME", "riocaja.smart09@gmail.com")
-MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "espe@050702")
+MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "mtazfuoieuscxowf")
 MAIL_FROM = os.getenv("MAIL_FROM", "riocaja.smart09@gmail.com")
 MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "RíoCaja Smart")
 
