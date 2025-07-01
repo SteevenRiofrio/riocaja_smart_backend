@@ -301,7 +301,7 @@ class UserService:
             logger.error(f"Error al cambiar estado del usuario {user_id}: {e}")
             return False
 
-    def update_user_session(self, user_id: str, new_session_id: str):
+def update_user_session(self, user_id: str, new_session_id: str):
     """Actualizar el session_id del usuario (esto cierra otras sesiones)"""
     try:
         self._ensure_connection()
@@ -321,6 +321,10 @@ class UserService:
             logger.info(f"Session ID actualizado para usuario {user_id}")
         
         return success
+        
+    except Exception as e:
+        logger.error(f"Error al actualizar session del usuario {user_id}: {e}")
+        return False
         
     except Exception as e:
         logger.error(f"Error al actualizar session del usuario {user_id}: {e}")
