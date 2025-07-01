@@ -50,11 +50,10 @@ def login(user: UserLogin):
         if not user_db:
             raise HTTPException(status_code=400, detail="Credenciales incorrectas")
 
-        # NUEVO: Verificar estado del usuario
+        # Verificar estado del usuario
         user_state = user_db.get("estado", "pendiente")
         
         if user_state != "activo":
-            # Devolver mensaje específico según el estado
             state_messages = {
                 "pendiente": "Su cuenta está pendiente de aprobación. Contacte al administrador.",
                 "suspendido": "Su cuenta ha sido suspendida. Contacte al administrador.",
@@ -69,11 +68,13 @@ def login(user: UserLogin):
                 detail=message
             )
 
+        # NUEVO: Incluir session_id en el token
         token_data = {
             "sub": user_db["_id"],
             "email": user_db["email"],
             "rol": user_db["rol"],
-            "estado": user_state,  # NUEVO: Incluir estado en el token
+            "estado": user_state,
+            "session_id": user_db["session_id"],  # NUEVO: session_id en el token
             "perfil_completo": user_db.get("perfil_completo", False)
         }
         
@@ -89,7 +90,8 @@ def login(user: UserLogin):
                 user_name=user_db['nombre'],
                 login_info={
                     'rol': user_db['rol'],
-                    'email': user_db['email']
+                    'email': user_db['email'],
+                    'session_id': user_db['session_id'][:8] + "..."  # NUEVO: incluir session parcial
                 }
             )
             logger.info(f"Email de login enviado a: {user_db['email']}")
