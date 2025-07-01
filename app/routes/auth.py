@@ -171,7 +171,7 @@ async def get_all_users(user=Depends(role_required(["admin", "operador"]))):
         print(f"Error en all-users: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
-@router.post("/approve-user-with-code")
+@router.post("/approve-user")
 async def approve_user_with_code(
     approval: UserApprovalWithCode, 
     current_user=Depends(role_required(["admin", "operador"]))
