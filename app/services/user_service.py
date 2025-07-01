@@ -361,6 +361,7 @@ def authenticate_user(self, email: str, password: str):
             return None
 
         # NUEVO: Generar nuevo session_id único
+        import uuid
         new_session_id = str(uuid.uuid4())
         
         # NUEVO: Actualizar session_id en la base de datos
