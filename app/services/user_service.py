@@ -92,14 +92,30 @@ class UserService:
             if not verify_password(password, user["password_hash"]):
                 logger.info(f"Contraseña incorrecta para: {email}")
                 return None
+
+            # NUEVO: Generar nuevo session_id único
+            new_session_id = str(uuid.uuid4())
             
+            # NUEVO: Actualizar session_id en la base de datos
+            self.users.update_one(
+                {"_id": user["_id"]},
+                {
+                    "$set": {
+                        "session_id": new_session_id,
+                        "last_login": datetime.utcnow()
+                    }
+                }
+            )
+            
+            # Agregar session_id al usuario retornado
+            user["session_id"] = new_session_id
             user["_id"] = str(user["_id"])
-            logger.info(f"Autenticación exitosa: {email}")
+            
+            logger.info(f"Autenticación exitosa: {email} con session: {new_session_id[:8]}...")
             return user
             
         except Exception as e:
             logger.error(f"Error en autenticación: {e}")
-            # Devolver None en lugar de raise para que el frontend reciba "credenciales incorrectas"
             return None
 
     def get_user_info(self, user_id: str):
@@ -301,87 +317,43 @@ class UserService:
             logger.error(f"Error al cambiar estado del usuario {user_id}: {e}")
             return False
 
-def update_user_session(self, user_id: str, new_session_id: str):
-    """Actualizar el session_id del usuario (esto cierra otras sesiones)"""
-    try:
-        self._ensure_connection()
-        
-        result = self.users.update_one(
-            {"_id": ObjectId(user_id)},
-            {
-                "$set": {
-                    "session_id": new_session_id,
-                    "last_login": datetime.utcnow()
-                }
-            }
-        )
-        
-        success = result.modified_count > 0
-        if success:
-            logger.info(f"Session ID actualizado para usuario {user_id}")
-        
-        return success
-        
-    except Exception as e:
-        logger.error(f"Error al actualizar session del usuario {user_id}: {e}")
-        return False
-        
-    except Exception as e:
-        logger.error(f"Error al actualizar session del usuario {user_id}: {e}")
-        return False
-
-def get_user_session_id(self, user_id: str):
-    """Obtener el session_id actual del usuario"""
-    try:
-        self._ensure_connection()
-        
-        user = self.users.find_one(
-            {"_id": ObjectId(user_id)}, 
-            {"session_id": 1}
-        )
-        
-        return user.get("session_id") if user else None
-        
-    except Exception as e:
-        logger.error(f"Error al obtener session del usuario {user_id}: {e}")
-        return None
-
-# Modificar el método authenticate_user existente
-def authenticate_user(self, email: str, password: str):
-    try:
-        self._ensure_connection()
-        
-        user = self.users.find_one({"email": email})
-        if not user:
-            logger.info(f"Usuario no encontrado: {email}")
-            return None
+    def update_user_session(self, user_id: str, new_session_id: str):
+        """Actualizar el session_id del usuario (esto cierra otras sesiones)"""
+        try:
+            self._ensure_connection()
             
-        if not verify_password(password, user["password_hash"]):
-            logger.info(f"Contraseña incorrecta para: {email}")
-            return None
-
-        # NUEVO: Generar nuevo session_id único
-        import uuid
-        new_session_id = str(uuid.uuid4())
-        
-        # NUEVO: Actualizar session_id en la base de datos
-        self.users.update_one(
-            {"_id": user["_id"]},
-            {
-                "$set": {
-                    "session_id": new_session_id,
-                    "last_login": datetime.utcnow()
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
+                {
+                    "$set": {
+                        "session_id": new_session_id,
+                        "last_login": datetime.utcnow()
+                    }
                 }
-            }
-        )
-        
-        # Agregar session_id al usuario retornado
-        user["session_id"] = new_session_id
-        user["_id"] = str(user["_id"])
-        
-        logger.info(f"Autenticación exitosa: {email} con session: {new_session_id[:8]}...")
-        return user
-        
-    except Exception as e:
-        logger.error(f"Error en autenticación: {e}")
-        return None
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Session ID actualizado para usuario {user_id}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error al actualizar session del usuario {user_id}: {e}")
+            return False
+
+    def get_user_session_id(self, user_id: str):
+        """Obtener el session_id actual del usuario"""
+        try:
+            self._ensure_connection()
+            
+            user = self.users.find_one(
+                {"_id": ObjectId(user_id)}, 
+                {"session_id": 1}
+            )
+            
+            return user.get("session_id") if user else None
+            
+        except Exception as e:
+            logger.error(f"Error al obtener session del usuario {user_id}: {e}")
+            return None
