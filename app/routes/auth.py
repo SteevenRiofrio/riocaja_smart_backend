@@ -46,17 +46,37 @@ def login(user: UserLogin):
         if not user_db:
             raise HTTPException(status_code=400, detail="Credenciales incorrectas")
 
+        # NUEVO: Verificar estado del usuario
+        user_state = user_db.get("estado", "pendiente")
+        
+        if user_state != "activo":
+            # Devolver mensaje específico según el estado
+            state_messages = {
+                "pendiente": "Su cuenta está pendiente de aprobación. Contacte al administrador.",
+                "suspendido": "Su cuenta ha sido suspendida. Contacte al administrador.",
+                "inactivo": "Su cuenta está inactiva. Contacte al administrador.",
+                "rechazado": "Su cuenta ha sido rechazada. Contacte al administrador."
+            }
+            
+            message = state_messages.get(user_state, f"Su cuenta está en estado {user_state}. Contacte al administrador.")
+            
+            raise HTTPException(
+                status_code=403, 
+                detail=message
+            )
+
         token_data = {
             "sub": user_db["_id"],
             "email": user_db["email"],
             "rol": user_db["rol"],
+            "estado": user_state,  # NUEVO: Incluir estado en el token
             "perfil_completo": user_db.get("perfil_completo", False)
         }
         
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
         
-        # NUEVO: Enviar email de notificacion de login
+        # Enviar email de notificacion de login
         try:
             from app.services.email_service import EmailService
             email_service = EmailService()
@@ -71,7 +91,6 @@ def login(user: UserLogin):
             logger.info(f"Email de login enviado a: {user_db['email']}")
         except Exception as email_error:
             logger.warning(f"No se pudo enviar email de login: {email_error}")
-            # No fallar el login si el email falla
         
         return {
             "access_token": access_token,
