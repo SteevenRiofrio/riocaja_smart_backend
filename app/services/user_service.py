@@ -9,6 +9,27 @@ from bson import ObjectId
 from app.config import MONGO_URI, DATABASE_NAME
 from app.services.crypto_service import hash_password, verify_password
 
+def clean_objectid_fields(data):
+    """
+    Recursivamente convierte todos los ObjectId a string en un diccionario o lista
+    """
+    if isinstance(data, list):
+        return [clean_objectid_fields(item) for item in data]
+    elif isinstance(data, dict):
+        cleaned = {}
+        for key, value in data.items():
+            if isinstance(value, ObjectId):
+                cleaned[key] = str(value)
+            elif isinstance(value, (dict, list)):
+                cleaned[key] = clean_objectid_fields(value)
+            else:
+                cleaned[key] = value
+        return cleaned
+    elif isinstance(data, ObjectId):
+        return str(data)
+    else:
+        return data
+
 logger = logging.getLogger(__name__)
 
 class UserService:
@@ -138,8 +159,13 @@ class UserService:
             
             user = self.users.find_one({"_id": ObjectId(user_id)})
             if user:
-                user["_id"] = str(user["_id"])
-                return user
+                # Limpiar datos sensibles
+                user.pop("password_hash", None)
+                user.pop("session_id", None)
+                
+                # Convertir ObjectIds a string
+                cleaned_user = clean_objectid_fields(user)
+                return cleaned_user
             return None
             
         except Exception as e:
@@ -151,8 +177,14 @@ class UserService:
             self._ensure_connection()
             user = self.users.find_one({"_id": ObjectId(user_id)})
             if user:
-                user["_id"] = str(user["_id"])
-            return user
+                # Limpiar datos sensibles
+                user.pop("password_hash", None)
+                user.pop("session_id", None)
+                
+                # Convertir ObjectIds a string
+                cleaned_user = clean_objectid_fields(user)
+                return cleaned_user
+            return None
         except Exception as e:
             logger.error(f"Error obteniendo usuario por ID {user_id}: {e}")
             return None
@@ -227,10 +259,18 @@ class UserService:
             self._ensure_connection()
             
             users = list(self.users.find({"estado": "pendiente"}))
+            processed_users = []
+            
             for user in users:
-                user["_id"] = str(user["_id"])
+                # Limpiar datos sensibles
                 user.pop("password_hash", None)
-            return users
+                user.pop("session_id", None)
+                
+                # Convertir TODOS los ObjectIds a string
+                cleaned_user = clean_objectid_fields(user)
+                processed_users.append(cleaned_user)
+                
+            return processed_users
         except Exception as e:
             logger.error(f"Error obteniendo usuarios pendientes: {e}")
             return []
@@ -240,15 +280,12 @@ class UserService:
         try:
             self._ensure_connection()
             
-            # ✅ CORRECCIÓN: Agregar logging detallado para debuggear
             logger.info("Intentando obtener todos los usuarios de la base de datos")
             
-            # ✅ CORRECCIÓN: Verificar que la colección existe
             if self.users is None:
                 logger.error("La colección 'users' no está inicializada")
                 return []
             
-            # ✅ CORRECCIÓN: Obtener usuarios con manejo de errores específico
             try:
                 users_cursor = self.users.find({})
                 users = list(users_cursor)
@@ -258,25 +295,24 @@ class UserService:
                 logger.error(f"Error al consultar la base de datos: {db_error}")
                 return []
             
-            # ✅ CORRECCIÓN: Procesar usuarios con validación
             processed_users = []
             for user in users:
                 try:
-                    # Verificar que el usuario tiene los campos básicos
                     if "_id" not in user:
                         logger.warning(f"Usuario sin _id encontrado: {user}")
                         continue
                     
-                    # Convertir ObjectId a string y limpiar datos sensibles
-                    user["_id"] = str(user["_id"])
+                    # Limpiar datos sensibles ANTES de convertir ObjectIds
                     user.pop("password_hash", None)
-                    user.pop("session_id", None)  # También remover session_id por seguridad
+                    user.pop("session_id", None)
                     
-                    processed_users.append(user)
+                    # Convertir TODOS los ObjectIds a string recursivamente
+                    cleaned_user = clean_objectid_fields(user)
+                    
+                    processed_users.append(cleaned_user)
                     
                 except Exception as user_error:
                     logger.error(f"Error procesando usuario individual: {user_error}")
-                    logger.error(f"Datos del usuario problemático: {user}")
                     continue
             
             logger.info(f"Se procesaron exitosamente {len(processed_users)} usuarios")
@@ -284,12 +320,8 @@ class UserService:
             
         except Exception as e:
             logger.error(f"Error crítico obteniendo todos los usuarios: {e}")
-            logger.error(f"Tipo de error: {type(e).__name__}")
-            import traceback
-            logger.error(f"Stack trace completo: {traceback.format_exc()}")
             return []
 
-    # ✅ FUNCIONES ADMIN CORREGIDAS
     def mark_admin_profile_complete(self, user_id: str) -> bool:
         """Marcar perfil de admin/asesor como completo automáticamente"""
         try:
@@ -620,10 +652,18 @@ class UserService:
             self._ensure_connection()
             
             users = list(self.users.find({"rol": role}))
+            processed_users = []
+            
             for user in users:
-                user["_id"] = str(user["_id"])
+                # Limpiar datos sensibles
                 user.pop("password_hash", None)
-            return users
+                user.pop("session_id", None)
+                
+                # Convertir ObjectIds a string
+                cleaned_user = clean_objectid_fields(user)
+                processed_users.append(cleaned_user)
+                
+            return processed_users
         except Exception as e:
             logger.error(f"Error obteniendo usuarios por rol {role}: {e}")
             return []
@@ -634,8 +674,13 @@ class UserService:
             
             user = self.users.find_one({"email": email})
             if user:
-                user["_id"] = str(user["_id"])
-                return user
+                # Limpiar datos sensibles
+                user.pop("password_hash", None)
+                user.pop("session_id", None)
+                
+                # Convertir ObjectIds a string
+                cleaned_user = clean_objectid_fields(user)
+                return cleaned_user
             return None
             
         except Exception as e:
