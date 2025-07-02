@@ -173,7 +173,7 @@ Saludos,
 Equipo RioCaja Smart
             """
 
-            email_sent = self._send_email(to_email, subject, body)
+            email_sent = self._send_email(email, subject, body)
             
             if email_sent:
                 logger.info(f"Código de reset enviado a: {email}")

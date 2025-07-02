@@ -1,23 +1,30 @@
-# app/services/email_service.py - VERSIÓN COMPLETA CORREGIDA
+# app/services/email_service.py - CORRECCIÓN DE CONFIGURACIÓN
 import smtplib
 import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-from typing import Dict, Any, Optional  # ✅ IMPORTACIÓN CORREGIDA
-import os
+from typing import Dict, Any, Optional
 import logging
+
+# ✅ CORRECCIÓN: Importar la configuración del archivo config.py
+from app.config import (
+    MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM, MAIL_FROM_NAME, 
+    MAIL_SERVER, MAIL_PORT, MAIL_STARTTLS
+)
 
 logger = logging.getLogger(__name__)
 
 class EmailService:
     def __init__(self):
-        # Configuración de email desde variables de entorno
-        self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        self.email_user = os.getenv("EMAIL_USER", "")
-        self.email_password = os.getenv("EMAIL_PASSWORD", "")
-        self.company_name = os.getenv("COMPANY_NAME", "RioCaja Smart")
+        # ✅ CORRECCIÓN: Usar la configuración del config.py en lugar de variables de entorno
+        self.smtp_server = MAIL_SERVER
+        self.smtp_port = MAIL_PORT
+        self.email_user = MAIL_USERNAME
+        self.email_password = MAIL_PASSWORD
+        self.mail_from = MAIL_FROM
+        self.mail_from_name = MAIL_FROM_NAME
+        self.company_name = "RíoCaja Smart"
         
         # Validación de configuración
         if not self.email_user or not self.email_password:
@@ -34,14 +41,16 @@ class EmailService:
             return False
             
         try:
+            logger.info(f"📧 Intentando enviar email a: {to_email}")
+            
             # Crear mensaje
             message = MIMEMultipart("alternative")
             message["Subject"] = subject
-            message["From"] = self.email_user
+            message["From"] = f"{self.mail_from_name} <{self.mail_from}"
             message["To"] = to_email
             
             # Agregar contenido HTML
-            html_part = MIMEText(html_body, "html")
+            html_part = MIMEText(html_body, "html", "utf-8")
             message.attach(html_part)
             
             # Crear contexto SSL seguro
@@ -49,15 +58,17 @@ class EmailService:
             
             # Conectar y enviar
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                server.starttls(context=context)
+                if MAIL_STARTTLS:
+                    server.starttls(context=context)
+                
                 server.login(self.email_user, self.email_password)
                 server.send_message(message)
-            
+                
             logger.info(f"✅ Email enviado exitosamente a: {to_email}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Error enviando email a {to_email}: {str(e)}")
+            logger.error(f"❌ Error al enviar email a {to_email}: {str(e)}")
             return False
     
     def _get_base_template(self, content: str, title: str) -> str:
@@ -68,27 +79,27 @@ class EmailService:
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>{title}</title>
+            <title>{title} - {self.company_name}</title>
         </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
-            <div style="background-color: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                 
                 <!-- Header -->
-                <div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #1976d2;">
-                    <h1 style="color: #1976d2; margin: 0; font-size: 24px;">💰 {self.company_name}</h1>
-                    <p style="color: #666; margin: 5px 0; font-size: 14px;">Sistema de Gestión Financiera</p>
+                <div style="background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%); padding: 30px; text-align: center;">
+                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">{self.company_name}</h1>
                 </div>
                 
-                <!-- Contenido Principal -->
-                <div style="margin: 20px 0;">
+                <!-- Content -->
+                <div style="padding: 30px;">
                     {content}
                 </div>
                 
                 <!-- Footer -->
-                <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #666; font-size: 12px;">
-                    <p>Este es un mensaje automático de <strong>{self.company_name}</strong></p>
-                    <p>📅 Enviado el {datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')}</p>
-                    <p style="margin-top: 15px; color: #999;">
+                <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+                    <p style="margin: 0; color: #6c757d; font-size: 14px;">
+                        © 2025 {self.company_name} - Todos los derechos reservados
+                    </p>
+                    <p style="margin: 5px 0 0 0; color: #6c757d; font-size: 12px;">
                         🔒 Email seguro y confidencial
                     </p>
                 </div>
