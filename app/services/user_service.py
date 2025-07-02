@@ -44,8 +44,8 @@ class UserService:
             self.users = None
             self.collection = None
 
-     def _ensure_connection(self):
-         """Asegurar que la conexión a MongoDB está activa"""
+    def _ensure_connection(self):
+        """Asegurar que la conexión a MongoDB está activa"""
     try:
         if self.client is None:
             logger.info("Reconectando a MongoDB...")
