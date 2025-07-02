@@ -1,6 +1,6 @@
 # RíoCaja Smart
 
-Sistema integral de gestión de comprobantes para Corresponsales No Bancarios (CNB) del Banco del Barrio - Banco Guayaquil.
+Sistema integral de gestión de comprobantes para Corresponsales No Bancarios (lector) del Banco del Barrio - Banco Guayaquil.
 
 ## ������ Descripción
 
@@ -11,7 +11,7 @@ RíoCaja Smart es una aplicación móvil desarrollada en Flutter que permite a l
 - ������ **Escaneo OCR**: Reconocimiento automático de texto en comprobantes
 - ������ **Gestión de Transacciones**: Control completo de retiros, depósitos, pagos y recargas
 - ������ **Reportes Automáticos**: Generación de reportes de cierre diarios en PDF
-- ������ **Sistema Multi-usuario**: Roles diferenciaasesorin, Operador, cnb)
+- ������ **Sistema Multi-usuario**: Roles diferenciaoperadorin, Operador, lector)
 - ������ **Autenticación Segura**: Sistema de login con verificación de perfiles
 - ������ **Sistema de Mensajes**: Comunicación entre administradores y usuarios
 - ������ **Interfaz Intuitiva**: Diseño en español optimizado para uso móvil
@@ -152,12 +152,12 @@ flutter build apk --release
 - Crear y administrar mensajes del sistema
 - Acceso completo a todos los comprobantes y reportes
 
-#### ���asesorador
+#### ���operadorador
 - Crear mensajes del sistema
 - Ver usuarios pendientes
 - Acceso a reportes y comprobantes (limitado)
 
-#### ������ cnb (Corresponsal)
+#### ������ lector (Corresponsal)
 - Escanear y gestionar comprobantes
 - Generar reportes de cierre diarios
 - Ver mensajes del sistema

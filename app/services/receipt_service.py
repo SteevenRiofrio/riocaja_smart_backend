@@ -43,7 +43,7 @@ class ReceiptService:
             raise
 
     def get_all_receipts_with_corresponsal_info(self) -> List[dict]:
-        """Obtener TODOS los comprobantes con información del corresponsal (solo admin/asesor)"""
+        """Obtener TODOS los comprobantes con información del corresponsal (solo admin/operador)"""
         try:
             receipts = list(self.receipts.find({}).sort("created_at", DESCENDING))
             
@@ -61,7 +61,7 @@ class ReceiptService:
             return []
 
     def get_receipts_by_user(self, user_id: str) -> List[dict]:
-        """Obtener comprobantes de un usuario específico (para cnbes)"""
+        """Obtener comprobantes de un usuario específico (para lectores)"""
         try:
             receipts = list(self.receipts.find({
                 "user_id": user_id
@@ -140,7 +140,7 @@ class ReceiptService:
             return []
 
     def get_receipts_by_date_with_corresponsal(self, date: str) -> List[dict]:
-        """Obtener comprobantes por fecha CON información del corresponsal (admin/asesor)"""
+        """Obtener comprobantes por fecha CON información del corresponsal (admin/operador)"""
         try:
             # Normalizar formatos de fecha
             date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
@@ -161,7 +161,7 @@ class ReceiptService:
             return []
 
     def get_receipts_by_date_and_user(self, date: str, user_id: str) -> List[dict]:
-        """Obtener comprobantes por fecha Y usuario específico (cnbes)"""
+        """Obtener comprobantes por fecha Y usuario específico (lectores)"""
         try:
             date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
             
@@ -203,7 +203,7 @@ class ReceiptService:
             return self._empty_report()
 
     def generate_closing_report_by_user(self, date: str, user_id: str) -> dict:
-        """Generar reporte de cierre para un usuario específico (cnbes)"""
+        """Generar reporte de cierre para un usuario específico (lectores)"""
         try:
             date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
             
@@ -221,7 +221,7 @@ class ReceiptService:
             return self._empty_report()
 
     def generate_closing_report(self, date: str) -> dict:
-        """Generar reporte de cierre completo (admin/asesor)"""
+        """Generar reporte de cierre completo (admin/operador)"""
         try:
             date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
             
@@ -299,7 +299,7 @@ class ReceiptService:
         }
 
     def delete_receipt(self, transaction_number: str) -> bool:
-        """Eliminar comprobante (admin/asesor)"""
+        """Eliminar comprobante (admin/operador)"""
         try:
             result = self.receipts.delete_one({"nro_transaccion": transaction_number})
             
@@ -314,7 +314,7 @@ class ReceiptService:
             return False
 
     def delete_receipt_by_user(self, transaction_number: str, user_id: str) -> bool:
-        """Eliminar comprobante solo si pertenece al usuario (cnbes)"""
+        """Eliminar comprobante solo si pertenece al usuario (lectores)"""
         try:
             result = self.receipts.delete_one({
                 "nro_transaccion": transaction_number,
@@ -332,7 +332,7 @@ class ReceiptService:
             return False
 
     def get_receipts_stats_by_corresponsal(self) -> List[dict]:
-        """Obtener estadísticas de comprobantes agrupadas por corresponsal (admin/asesor)"""
+        """Obtener estadísticas de comprobantes agrupadas por corresponsal (admin/operador)"""
         try:
             pipeline = [
                 {

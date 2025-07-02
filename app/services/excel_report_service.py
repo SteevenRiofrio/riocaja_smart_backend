@@ -34,7 +34,7 @@ class ExcelReportService:
                             end_date: str, 
                             report_type: str = "general",
                             user_id: Optional[str] = None,
-                            user_role: str = "cnb",
+                            user_role: str = "lector",
                             codigo_corresponsal: Optional[str] = None) -> bytes:
         """
         Genera reporte Excel completo
@@ -43,9 +43,9 @@ class ExcelReportService:
             start_date: Fecha inicio (YYYY-MM-DD)
             end_date: Fecha fin (YYYY-MM-DD)
             report_type: general, daily, weekly, monthly
-            user_id: ID del usuario (para cnbes)
-            user_role: Rol del usuario (admin, asesor, cnb)
-            codigo_corresponsal: Filtro por corresponsal especifico (admin/asesor)
+            user_id: ID del usuario (para lectores)
+            user_role: Rol del usuario (admin, operador, lector)
+            codigo_corresponsal: Filtro por corresponsal especifico (admin/operador)
         """
         try:
             logger.info(f"Generando reporte Excel: {report_type} del {start_date} al {end_date}")
@@ -67,7 +67,7 @@ class ExcelReportService:
             if report_type in ["weekly", "monthly"]:
                 self._create_temporal_analysis_sheet(wb, receipts_data, report_type)
             
-            if user_role in ["admin", "asesor"]:
+            if user_role in ["admin", "operador"]:
                 self._create_corresponsal_sheet(wb, receipts_data)
             
             # Aplicar formato general
@@ -111,9 +111,9 @@ class ExcelReportService:
             query["fecha"] = {"$in": date_variations}
             
             # Aplicar filtros segun rol
-            if user_role == "cnb" and user_id:
+            if user_role == "lector" and user_id:
                 query["user_id"] = user_id
-            elif codigo_corresponsal and user_role in ["admin", "asesor"]:
+            elif codigo_corresponsal and user_role in ["admin", "operador"]:
                 query["codigo_corresponsal"] = codigo_corresponsal
             
             # Obtener datos
@@ -241,8 +241,8 @@ class ExcelReportService:
             "Valor Total", "Dia Semana", "Semana", "Mes"
         ]
         
-        # Headers adicionales para admin/asesor
-        if user_role in ["admin", "asesor"]:
+        # Headers adicionales para admin/operador
+        if user_role in ["admin", "operador"]:
             headers.extend([
                 "Codigo Corresponsal", "Nombre Corresponsal", 
                 "Nombre Local", "Email Usuario"
@@ -266,7 +266,7 @@ class ExcelReportService:
             ws.cell(row=row, column=7, value=receipt.get("semana_num", ""))
             ws.cell(row=row, column=8, value=receipt.get("mes_num", ""))
             
-            if user_role in ["admin", "asesor"]:
+            if user_role in ["admin", "operador"]:
                 ws.cell(row=row, column=9, value=receipt.get("codigo_corresponsal", ""))
                 ws.cell(row=row, column=10, value=receipt.get("nombre_corresponsal", ""))
                 ws.cell(row=row, column=11, value=receipt.get("nombre_local", ""))
@@ -294,7 +294,7 @@ class ExcelReportService:
             ws["A1"].font = Font(size=14, bold=True)
 
     def _create_corresponsal_sheet(self, wb: Workbook, data: List[Dict]):
-        """Crea analisis detallado por corresponsal (solo admin/asesor)"""
+        """Crea analisis detallado por corresponsal (solo admin/operador)"""
         ws = wb.create_sheet("Analisis por Corresponsal")
         
         ws["A1"] = "ANALISIS DETALLADO POR CORRESPONSAL"
@@ -435,7 +435,7 @@ class ExcelReportService:
 
     def get_report_statistics(self, start_date: str, end_date: str, 
                             user_id: Optional[str] = None, 
-                            user_role: str = "cnb") -> Dict:
+                            user_role: str = "lector") -> Dict:
         """Obtiene estadisticas rapidas del reporte antes de generarlo"""
         try:
             data = self._get_receipts_data(start_date, end_date, user_id, user_role, None)

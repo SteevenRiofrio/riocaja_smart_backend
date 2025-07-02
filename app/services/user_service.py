@@ -51,7 +51,7 @@ class UserService:
             logger.error("Conexión a MongoDB no está inicializada")
             raise Exception("Error de conexión a la base de datos")
 
-    def register_user(self, nombre: str, email: str, password: str, rol: str = "cnb"):
+    def register_user(self, nombre: str, email: str, password: str, rol: str = "lector"):
         try:
             self._ensure_connection()
             
@@ -149,7 +149,8 @@ class UserService:
             )
             success = result.modified_count > 0
             if success:
-                logger.info(f"Usuario {user_id} aprobado con código {codigo_corresponsal}")
+                logger.info(f"Usuario lector {user_id} aprobado con código {codigo_corresponsal}")
+
             return success
             
         except Exception as e:
@@ -172,7 +173,7 @@ class UserService:
             )
             success = result.modified_count > 0
             if success:
-                logger.info(f"Perfil completado para usuario {user_id}")
+                logger.info(f"Perfil lector completado para usuario {user_id}")
             return success
             
         except Exception as e:
@@ -232,7 +233,7 @@ class UserService:
                 "nombre": admin_data["nombre"],
                 "email": admin_data["email"],
                 "password_hash": hash_password(admin_data["password"]),
-                "rol": "admin",
+                "rol": "admin",  # Este se mantiene igual
                 "estado": "activo",
                 "perfil_completo": True,
                 "fecha_registro": datetime.utcnow(),
@@ -241,7 +242,7 @@ class UserService:
             }
             
             result = self.users.insert_one(admin_user)
-            logger.info(f"Admin creado: {admin_data['email']}")
+            logger.info(f"Usuario Admin creado: {admin_data['email']}")
             return str(result.inserted_id)
             
         except Exception as e:

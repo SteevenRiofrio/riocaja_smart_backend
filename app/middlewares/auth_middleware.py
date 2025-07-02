@@ -1,65 +1,89 @@
-from fastapi import Depends, HTTPException, status
+import jwt
+from datetime import datetime, timedelta
+from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Optional, List
-from app.services.auth_service import decode_token
-import logging  # ← AÑADIR AQUÍ
+from typing import List
+from app.config import SECRET_KEY, ALGORITHM
+from app.services.user_service import UserService
 
-logger = logging.getLogger(__name__)  # ← AÑADIR AQUÍ
 security = HTTPBearer()
+user_service = UserService()
+
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(hours=24)
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Obtener usuario actual desde el token JWT con validación de estado y sesión"""
+    """Obtener el usuario actual desde el token"""
+    token = credentials.credentials
+    
     try:
-        token = credentials.credentials
-        payload = decode_token(token)
+        # Decodificar token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        current_session_id = payload.get("session_id")
         
-        if payload is None:
+        if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token inválido o expirado",
+                detail="Token inválido",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        user_id = payload.get("sub")
-        token_session_id = payload.get("session_id")  # session_id del token
+        # Validar usuario actual en BD
+        user_info = user_service.get_user_by_id(user_id)
+        if not user_info:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuario no encontrado",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         
-        if user_id:
-            # CORREGIDO: Importar aquí para evitar import circular
-            from app.services.user_service import UserService
-            user_service = UserService()
-            user_info = user_service.get_user_info(user_id)
-            
-            if user_info:
-                user_state = user_info.get("estado", "pendiente")
-                current_session_id = user_info.get("session_id")  # session_id actual en BD
-                
-                # CORREGIDO: Solo verificar session_id si ambos existen
-                if (token_session_id and current_session_id and 
-                    token_session_id != current_session_id):
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Tu sesión fue cerrada porque iniciaste sesión en otro dispositivo.",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    )
-                
-                # Verificar estado del usuario
-                if user_state != "activo":
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail=f"Cuenta {user_state}. Contacte al administrador.",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    )
-                
-                # Actualizar payload con datos frescos del usuario
-                payload["estado"] = user_state
-                payload["rol"] = user_info.get("rol", payload.get("rol"))
-                payload["session_id"] = current_session_id
+        # Verificar sesión activa si session_id está presente
+        if current_session_id:
+            db_session_id = user_info.get("session_id")
+            if db_session_id and current_session_id != db_session_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Sesión cerrada por login en otro dispositivo",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
         
+        # Si no hay session_id en el token (tokens antiguos), validar solo estado
+        user_state = user_info.get("estado", "inactivo")
+        
+        # Si el usuario está inactivo, mostrar mensaje específico
+        if user_state == "inactivo":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Cuenta inactiva. Contacte al administrador.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Si el usuario está en cualquier otro estado que no sea activo
+        if user_state != "activo":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Cuenta {user_state}. Contacte al administrador.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Actualizar payload con datos frescos del usuario
+        payload["estado"] = user_state
+        payload["rol"] = user_info.get("rol", payload.get("rol"))
+        payload["session_id"] = current_session_id  # NUEVO: mantener session_id actualizado
+
         return payload
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error en get_current_user: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido o expirado",
@@ -90,12 +114,12 @@ def admin_required(current_user: dict = Depends(get_current_user)):
         )
     return current_user
 
-def admin_or_asesor_required(current_user: dict = Depends(get_current_user)):
-    """Verificar que el usuario sea admin u asesor"""
+def admin_or_operador_required(current_user: dict = Depends(get_current_user)):
+    """Verificar que el usuario sea admin o operador (antes operador)"""
     user_role = current_user.get("rol")
-    if user_role not in ["admin", "asesor"]:
+    if user_role not in ["admin", "operador"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Se requieren permisos de administrador u asesor"
+            detail="Se requieren permisos de administrador o operador"
         )
     return current_user

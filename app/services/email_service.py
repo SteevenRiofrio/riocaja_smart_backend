@@ -57,7 +57,7 @@ class EmailService:
                     <p style="font-size: 12px; color: #666; text-align: center;">
                         Este es un mensaje automatico de seguridad de RioCaja Smart.<br>
                         No respondas a este correo.<br>
-                        © 2025 RioCaja Smart - Sistema de Gestion de Comprobantes CNB
+                        © 2025 RioCaja Smart - Sistema de Gestion de Comprobantes lector
                     </p>
                 </div>
             </body>
@@ -105,7 +105,7 @@ class EmailService:
                     <div style="background-color: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2e7d32;">
                         <p style="margin: 5px 0;"><strong>📧 Tu usuario:</strong> {user_email}</p>
                         <p style="margin: 5px 0;"><strong>📱 Acceso:</strong> Aplicacion Movil RioCaja Smart</p>
-                        <p style="margin: 5px 0;"><strong>🏢 Sistema:</strong> Gestion de Comprobantes CNB</p>
+                        <p style="margin: 5px 0;"><strong>🏢 Sistema:</strong> Gestion de Comprobantes lector</p>
                     </div>
                     
                     <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
@@ -124,7 +124,7 @@ class EmailService:
                     <hr style="margin: 30px 0; border: 1px solid #ddd;">
                     
                     <p style="font-size: 12px; color: #666; text-align: center;">
-                        © 2025 RioCaja Smart - Sistema de Gestion de Comprobantes CNB<br>
+                        © 2025 RioCaja Smart - Sistema de Gestion de Comprobantes lector<br>
                         Si tienes dudas, contacta al administrador del sistema.
                     </p>
                 </div>
@@ -185,7 +185,7 @@ class EmailService:
                     <hr style="margin: 30px 0; border: 1px solid #ddd;">
                     
                     <p style="font-size: 12px; color: #666; text-align: center;">
-                        © 2025 RioCaja Smart - Sistema de Gestion de Comprobantes CNB
+                        © 2025 RioCaja Smart - Sistema de Gestion de Comprobantes lector
                     </p>
                 </div>
             </body>
