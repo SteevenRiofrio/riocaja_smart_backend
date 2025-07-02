@@ -17,7 +17,7 @@ class User(BaseModel):
     nombre: str
     email: EmailStr
     password_hash: str
-    rol: str = "cnb"  # Por defecto CNB (antes era lector)
+    rol: str = "cnb"  # Por defecto CNB 
     estado: str = "pendiente"
     fecha_registro: datetime = Field(default_factory=datetime.utcnow)
     perfil_completo: bool = False

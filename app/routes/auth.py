@@ -16,7 +16,7 @@ class UserRegister(BaseModel):
     nombre: str
     email: EmailStr
     password: str
-    rol: Optional[str] = "lector"
+    rol: Optional[str] = "cnb"
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -181,7 +181,7 @@ async def complete_profile(profile: UserProfile, user=Depends(get_current_user))
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/pending-users", response_model=List[dict])
-async def get_pending_users(user=Depends(role_required(["admin", "operador"]))):
+async def get_pending_users(user=Depends(role_required(["admin", "asesor"]))):
     try:
         return user_service.get_pending_users()
     except Exception as e:
@@ -189,7 +189,7 @@ async def get_pending_users(user=Depends(role_required(["admin", "operador"]))):
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/all-users", response_model=List[dict])
-async def get_all_users(user=Depends(role_required(["admin", "operador"]))):
+async def get_all_users(user=Depends(role_required(["admin", "asesor"]))):
     try:
         return user_service.get_all_users()
     except Exception as e:
@@ -199,7 +199,7 @@ async def get_all_users(user=Depends(role_required(["admin", "operador"]))):
 @router.post("/approve-user")
 async def approve_user_with_code(
     approval: UserApprovalWithCode, 
-    current_user=Depends(role_required(["admin", "operador"]))
+    current_user=Depends(role_required(["admin", "asesor"]))
 ):
     try:
         success = user_service.approve_user_with_code(
@@ -304,9 +304,9 @@ def refresh_token(request: dict):
 @router.put("/change-state")
 async def change_user_state(
     request: ChangeUserStateRequest,
-    current_user=Depends(role_required(["admin", "operador"]))
+    current_user=Depends(role_required(["admin", "asesor"]))
 ):
-    """Cambiar estado de un usuario (solo admin y operador)"""
+    """Cambiar estado de un usuario (solo admin y asesor)"""
     try:
         # Validar estados permitidos
         valid_states = ["activo", "suspendido", "inactivo", "pendiente"]

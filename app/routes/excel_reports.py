@@ -17,7 +17,7 @@ class ExcelReportRequest(BaseModel):
     start_date: str  # YYYY-MM-DD
     end_date: str    # YYYY-MM-DD
     report_type: str = "general"  # general, daily, weekly, monthly
-    codigo_corresponsal: Optional[str] = None  # Solo para admin/operador
+    codigo_corresponsal: Optional[str] = None  # Solo para admin/asesor
 
 class DateRangeOption(BaseModel):
     key: str
@@ -62,7 +62,7 @@ async def get_date_range_options(current_user=Depends(get_current_user)):
 async def get_available_corresponsales(current_user=Depends(get_current_user)):
     """
     Obtiene lista de corresponsales disponibles para filtros
-    Solo disponible para admin y operador
+    Solo disponible para admin y asesor
     """
     try:
         user_role = current_user.get("rol", "cnb")
@@ -118,7 +118,7 @@ async def get_report_statistics(
         stats = excel_service.get_report_statistics(
             start_date=request.start_date,
             end_date=request.end_date,
-            user_id=user_id if user_role == "lector" else None,
+            user_id=user_id if user_role == "cnb" else None,
             user_role=user_role
         )
         
@@ -140,7 +140,7 @@ async def generate_excel_report(
     """
     try:
         user_id = current_user.get("sub")
-        user_role = current_user.get("rol", "lector")
+        user_role = current_user.get("rol", "cnb")
         user_name = current_user.get("email", "usuario")
         
         logger.info(f"Generando reporte Excel para usuario {user_name} ({user_role})")
@@ -155,7 +155,7 @@ async def generate_excel_report(
             raise HTTPException(status_code=400, detail=error_msg)
         
         # Validar permisos para filtro por corresponsal
-        if request.codigo_corresponsal and user_role not in ["admin", "operador"]:
+        if request.codigo_corresponsal and user_role not in ["admin", "asesor"]:
             raise HTTPException(
                 status_code=403,
                 detail="No tiene permisos para filtrar por corresponsal"
@@ -174,7 +174,7 @@ async def generate_excel_report(
             start_date=request.start_date,
             end_date=request.end_date,
             report_type=request.report_type,
-            user_id=user_id if user_role == "lector" else None,
+            user_id=user_id if user_role == "cnb" else None,
             user_role=user_role,
             codigo_corresponsal=request.codigo_corresponsal
         )
@@ -241,7 +241,7 @@ async def get_report_templates(current_user=Depends(get_current_user)):
     Obtiene plantillas predefinidas de reportes
     """
     try:
-        user_role = current_user.get("rol", "lector")
+        user_role = current_user.get("rol", "cnb")
         
         templates = [
             {
@@ -278,8 +278,8 @@ async def get_report_templates(current_user=Depends(get_current_user)):
             }
         ]
         
-        # Templates adicionales para admin/operador
-        if user_role in ["admin", "operador"]:
+        # Templates adicionales para admin/asesor
+        if user_role in ["admin", "asesor"]:
             templates.extend([
                 {
                     "id": "trimestral",
@@ -415,7 +415,7 @@ async def test_excel_service(current_user=Depends(get_current_user)):
     Endpoint de prueba para verificar el funcionamiento del servicio
     """
     try:
-        user_role = current_user.get("rol", "lector")
+        user_role = current_user.get("rol", "cnb")
         
         # Solo permitir en desarrollo
         if not __debug__:
@@ -428,7 +428,7 @@ async def test_excel_service(current_user=Depends(get_current_user)):
         stats = excel_service.get_report_statistics(
             start_date=yesterday,
             end_date=today,
-            user_id=current_user.get("sub") if user_role == "lector" else None,
+            user_id=current_user.get("sub") if user_role == "cnb" else None,
             user_role=user_role
         )
         
