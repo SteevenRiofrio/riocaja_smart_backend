@@ -44,16 +44,15 @@ class UserService:
             self.users = None
             self.collection = None
 
-def _ensure_connection(self):
-    """Asegurar que la conexión a MongoDB está activa"""
+     def _ensure_connection(self):
+         """Asegurar que la conexión a MongoDB está activa"""
     try:
         if self.client is None:
             logger.info("Reconectando a MongoDB...")
-            self.client = MongoClient(self.connection_string)
-            self.db = self.client[self.database_name]
+            self.client = MongoClient(MONGO_URI)
+            self.db = self.client[DATABASE_NAME]
             self.users = self.db.users
         
-        # ✅ CORRECCIÓN: Verificar la conexión con ping
         self.client.admin.command('ping')
         logger.debug("Conexión a MongoDB verificada exitosamente")
         
@@ -61,8 +60,8 @@ def _ensure_connection(self):
         logger.error(f"Error en conexión a MongoDB: {e}")
         # Reintentar una vez
         try:
-            self.client = MongoClient(self.connection_string)
-            self.db = self.client[self.database_name]
+            self.client = MongoClient(MONGO_URI)
+            self.db = self.client[DATABASE_NAME]
             self.users = self.db.users
             self.client.admin.command('ping')
             logger.info("Reconexión a MongoDB exitosa")
@@ -235,8 +234,8 @@ def _ensure_connection(self):
             logger.error(f"Error obteniendo usuarios pendientes: {e}")
             return []
 
-def get_all_users(self) -> List[dict]:
-    """Obtener todos los usuarios del sistema"""
+    def get_all_users(self) -> List[dict]:
+        """Obtener todos los usuarios del sistema"""
     try:
         self._ensure_connection()
         
