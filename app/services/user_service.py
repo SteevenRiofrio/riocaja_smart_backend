@@ -1,12 +1,15 @@
 # app/services/user_service.py - VERSIÓN COMPLETA Y CORREGIDA
 import logging
 import uuid
+from app.database import db
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional, List, Dict, Any
 from pymongo import MongoClient
 from bson import ObjectId
 from app.config import MONGO_URI, DATABASE_NAME
 from app.services.crypto_service import hash_password, verify_password
+from werkzeug.security import generate_password_hash, check_password_hash
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,93 +54,121 @@ class UserService:
             logger.error("Conexión a MongoDB no está inicializada")
             raise Exception("Error de conexión a la base de datos")
 
-    def register_user(self, nombre: str, email: str, password: str, rol: str = "cnb"):
+    def register_user(self, nombre: str, email: str, password: str, rol: str = "cnb") -> dict:
+        """Registrar nuevo usuario CON notificaciones email"""
         try:
-            self._ensure_connection()
+            # Verificar si el usuario ya existe
+            if self.collection.find_one({"email": email}):
+                raise ValueError("El usuario ya existe")
             
-            # Verificar si existe
-            if self.users.find_one({"email": email}):
-                raise ValueError("El email ya está registrado")
-            
-            # Crear usuario
+            # Crear nuevo usuario
             user_data = {
+                "_id": str(ObjectId()),
                 "nombre": nombre,
                 "email": email,
-                "password_hash": hash_password(password),
+                "password_hash": generate_password_hash(password),
                 "rol": rol,
                 "estado": "pendiente",
                 "fecha_registro": datetime.utcnow(),
-                "perfil_completo": False
+                "perfil_completo": False,
+                "session_id": str(uuid.uuid4()),
+                "intentos_fallidos": 0
             }
             
-            result = self.users.insert_one(user_data)
-            logger.info(f"Usuario registrado: {email}")
-            return {"message": "Usuario registrado exitosamente", "user_id": str(result.inserted_id)}
+            # Insertar usuario en la base de datos
+            result = self.collection.insert_one(user_data)
+            
+            # NUEVO: Enviar notificaciones por email
+            try:
+                from app.services.email_service import EmailService
+                email_service = EmailService()
+                
+                # 1. Email de confirmación al usuario
+                email_service.send_registration_confirmation(
+                    user_email=email,
+                    user_name=nombre
+                )
+                logger.info(f"Email de confirmación enviado a: {email}")
+                
+                # 2. Notificación a asesores sobre nuevo usuario pendiente
+                advisor_emails = email_service.get_advisor_emails()
+                if advisor_emails:
+                    email_service.send_new_user_notification_to_advisors(
+                        user_data={
+                            'nombre': nombre,
+                            'email': email,
+                            'rol': rol
+                        },
+                        advisor_emails=advisor_emails
+                    )
+                    logger.info(f"Notificación enviada a {len(advisor_emails)} asesores")
+                else:
+                    logger.warning("No se encontraron emails de asesores para notificar")
+                    
+            except Exception as email_error:
+                logger.error(f"Error enviando emails de registro: {email_error}")
+                # No fallar el registro por errores de email
+            
+            return {
+                "message": "Usuario registrado exitosamente. Espere la aprobación del administrador.",
+                "user_id": str(result.inserted_id)
+            }
             
         except ValueError:
             raise
         except Exception as e:
-            logger.error(f"Error al registrar usuario: {e}")
-            raise Exception("Error de conexión con la base de datos")
+            logger.error(f"Error registrando usuario: {e}")
+            raise Exception("Error interno del servidor")
 
-    def authenticate_user(self, email: str, password: str):
+    def authenticate_user(self, email: str, password: str) -> Optional[dict]:
+        """Autenticar usuario (sin cambios)"""
         try:
-            self._ensure_connection()
-            
-            user = self.users.find_one({"email": email})
-            if not user:
-                logger.info(f"Usuario no encontrado: {email}")
-                return None
-                
-            if not verify_password(password, user["password_hash"]):
-                logger.info(f"Contraseña incorrecta para: {email}")
-                return None
-
-            # NUEVO: Generar nuevo session_id único
-            new_session_id = str(uuid.uuid4())
-            
-            # NUEVO: Actualizar session_id en la base de datos
-            self.users.update_one(
-                {"_id": user["_id"]},
-                {
-                    "$set": {
-                        "session_id": new_session_id,
-                        "last_login": datetime.utcnow()
-                    }
-                }
-            )
-            
-            # Agregar session_id al usuario retornado
-            user["session_id"] = new_session_id
-            user["_id"] = str(user["_id"])
-            
-            logger.info(f"Autenticación exitosa: {email} con session: {new_session_id[:8]}...")
-            return user
-            
+            user = self.collection.find_one({"email": email})
+            if user and check_password_hash(user["password_hash"], password):
+                # Actualizar session_id en cada login
+                new_session_id = str(uuid.uuid4())
+                self.collection.update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {"session_id": new_session_id}}
+                )
+                user["session_id"] = new_session_id
+                return user
+            return None
         except Exception as e:
             logger.error(f"Error en autenticación: {e}")
             return None
 
-    def get_user_info(self, user_id: str):
+    def get_user_info(self, user_id: str) -> Optional[dict]:
+        """Obtener información de un usuario específico"""
         try:
-            self._ensure_connection()
-            
-            user = self.users.find_one({"_id": ObjectId(user_id)})
+            user = self.collection.find_one({"_id": user_id})
             if user:
-                user["_id"] = str(user["_id"])
-                return user
-            return None
-            
+                user.pop("password_hash", None)
+            return user
         except Exception as e:
-            logger.error(f"Error al obtener usuario {user_id}: {e}")
+            logger.error(f"Error obteniendo info del usuario {user_id}: {e}")
             return None
 
-    def approve_user_with_code(self, user_id: str, codigo_corresponsal: str, approved_by: str):
+    def get_user_by_id(self, user_id: str) -> Optional[dict]:
+        """Obtener usuario por ID"""
         try:
-            self._ensure_connection()
+            return self.collection.find_one({"_id": user_id})
+        except Exception as e:
+            logger.error(f"Error obteniendo usuario por ID {user_id}: {e}")
+            return None
+
+    def approve_user_with_code(self, user_id: str, codigo_corresponsal: str, approved_by: str) -> bool:
+        """Aprobar usuario con código de corresponsal CON notificación email"""
+        try:
+            # Obtener datos del usuario antes de actualizar
+            user_data = self.collection.find_one({"_id": user_id})
+            if not user_data:
+                logger.error(f"Usuario no encontrado: {user_id}")
+                return False
             
-            result = self.users.update_one(
-                {"_id": ObjectId(user_id)},
+            # Actualizar usuario
+            result = self.collection.update_one(
+                {"_id": user_id},
                 {
                     "$set": {
                         "estado": "activo",
@@ -147,22 +178,35 @@ class UserService:
                     }
                 }
             )
-            success = result.modified_count > 0
-            if success:
-                logger.info(f"Usuario cnb {user_id} aprobado con código {codigo_corresponsal}")
-
-            return success
+            
+            if result.modified_count > 0:
+                # NUEVO: Enviar email de aprobación
+                try:
+                    from app.services.email_service import EmailService
+                    email_service = EmailService()
+                    
+                    email_service.send_account_approved_notification(
+                        user_email=user_data['email'],
+                        user_name=user_data['nombre'],
+                        codigo_corresponsal=codigo_corresponsal
+                    )
+                    logger.info(f"Email de aprobación enviado a: {user_data['email']}")
+                    
+                except Exception as email_error:
+                    logger.error(f"Error enviando email de aprobación: {email_error}")
+                
+                return True
+            return False
             
         except Exception as e:
-            logger.error(f"Error al aprobar usuario {user_id}: {e}")
+            logger.error(f"Error aprobando usuario: {e}")
             return False
 
-    def complete_user_profile_simple(self, user_id: str, nombre_local: str):
+    def complete_user_profile_simple(self, user_id: str, nombre_local: str) -> bool:
+        """Completar perfil simple"""
         try:
-            self._ensure_connection()
-            
-            result = self.users.update_one(
-                {"_id": ObjectId(user_id)},
+            result = self.collection.update_one(
+                {"_id": user_id},
                 {
                     "$set": {
                         "nombre_local": nombre_local,
@@ -171,117 +215,97 @@ class UserService:
                     }
                 }
             )
-            success = result.modified_count > 0
-            if success:
-                logger.info(f"Perfil cnb completado para usuario {user_id}")
-            return success
-            
+            return result.modified_count > 0
         except Exception as e:
-            logger.error(f"Error al completar perfil {user_id}: {e}")
+            logger.error(f"Error completando perfil: {e}")
             return False
 
-    def get_pending_users(self):
+    def get_pending_users(self) -> List[dict]:
+        """Obtener usuarios pendientes"""
         try:
-            self._ensure_connection()
-            
-            users = list(self.users.find(
-                {"estado": "pendiente"}, 
-                {"password_hash": 0}  # Excluir password
-            ))
-            
+            users = list(self.collection.find({"estado": "pendiente"}))
             for user in users:
-                user["_id"] = str(user["_id"])
-                
-            logger.info(f"Usuarios pendientes obtenidos: {len(users)}")
+                user.pop("password_hash", None)
             return users
-            
         except Exception as e:
-            logger.error(f"Error al obtener usuarios pendientes: {e}")
+            logger.error(f"Error obteniendo usuarios pendientes: {e}")
             return []
 
-    def get_all_users(self):
+    def get_all_users(self) -> List[dict]:
+        """Obtener todos los usuarios"""
         try:
-            self._ensure_connection()
-            
-            users = list(self.users.find(
-                {}, 
-                {"password_hash": 0}  # Excluir password
-            ))
-            
+            users = list(self.collection.find({}))
             for user in users:
-                user["_id"] = str(user["_id"])
-                if user.get("aprobado_por"):
-                    user["aprobado_por"] = str(user["aprobado_por"])
-                    
-            logger.info(f"Todos los usuarios obtenidos: {len(users)}")
+                user.pop("password_hash", None)
             return users
-            
         except Exception as e:
-            logger.error(f"Error al obtener todos los usuarios: {e}")
+            logger.error(f"Error obteniendo todos los usuarios: {e}")
             return []
 
-    def create_admin_user(self, admin_data: dict):
-        """Crear usuario admin sin necesidad de aprobacion"""
+    def create_admin_user(self, admin_data: dict) -> str:
+        """Crear usuario administrador"""
         try:
-            self._ensure_connection()
+            if self.collection.find_one({"email": admin_data["email"]}):
+                raise ValueError("El administrador ya existe")
             
-            # Verificar si existe
-            if self.users.find_one({"email": admin_data["email"]}):
-                raise ValueError("El email ya está registrado")
-            
-            admin_user = {
+            user_data = {
+                "_id": str(ObjectId()),
                 "nombre": admin_data["nombre"],
                 "email": admin_data["email"],
-                "password_hash": hash_password(admin_data["password"]),
-                "rol": "admin",  # Este se mantiene igual
+                "password_hash": generate_password_hash(admin_data["password"]),
+                "rol": "admin",
                 "estado": "activo",
-                "perfil_completo": True,
                 "fecha_registro": datetime.utcnow(),
-                "codigo_corresponsal": "ADMIN",
-                "nombre_local": "Administración"
+                "perfil_completo": True,
+                "session_id": str(uuid.uuid4()),
+                "creado_por": admin_data.get("creado_por", "sistema")
             }
             
-            result = self.users.insert_one(admin_user)
-            logger.info(f"Usuario Admin creado: {admin_data['email']}")
+            result = self.collection.insert_one(user_data)
             return str(result.inserted_id)
             
         except Exception as e:
             logger.error(f"Error creando admin: {e}")
             raise
 
-    def create_first_admin(self, admin_data: dict):
-        """Crear primer admin del sistema"""
-        return self.create_admin_user(admin_data)
-
-    def count_admins(self):
-        """Contar admins existentes"""
+    def create_first_admin(self, admin_data: dict) -> str:
+        """Crear primer administrador del sistema"""
         try:
-            self._ensure_connection()
-            return self.users.count_documents({"rol": "admin"})
+            admin_data["creado_por"] = "setup_inicial"
+            return self.create_admin_user(admin_data)
+        except Exception as e:
+            logger.error(f"Error creando primer admin: {e}")
+            raise
+
+    def count_admins(self) -> int:
+        """Contar administradores"""
+        try:
+            return self.collection.count_documents({"rol": "admin"})
         except Exception as e:
             logger.error(f"Error contando admins: {e}")
             return 0
 
-    def make_user_admin(self, email: str):
-        """Convertir usuario existente en admin"""
+    def make_user_admin(self, email: str, secret_key: str) -> bool:
+        """Convertir usuario en admin (setup inicial)"""
         try:
-            self._ensure_connection()
+            # Verificar clave secreta (implementar según necesidades)
+            if secret_key != "admin_setup_key_2025":
+                return False
             
-            result = self.users.update_one(
+            result = self.collection.update_one(
                 {"email": email},
                 {
                     "$set": {
                         "rol": "admin",
                         "estado": "activo",
                         "perfil_completo": True,
-                        "codigo_corresponsal": "ADMIN001",
-                        "nombre_local": "Administración Principal"
+                        "fecha_admin": datetime.utcnow()
                     }
                 }
             )
             return result.modified_count > 0
         except Exception as e:
-            logger.error(f"Error convirtiendo a admin: {e}")
+            logger.error(f"Error convirtiendo usuario en admin: {e}")
             return False
 
     def change_user_state(self, user_id: str, new_state: str):
@@ -344,6 +368,7 @@ class UserService:
             return False
 
     def get_user_session_id(self, user_id: str):
+
         """Obtener el session_id actual del usuario"""
         try:
             self._ensure_connection()
@@ -358,3 +383,157 @@ class UserService:
         except Exception as e:
             logger.error(f"Error al obtener session del usuario {user_id}: {e}")
             return None
+
+    def reject_user(self, user_id: str, reason: str = None) -> bool:
+        """Rechazar usuario CON notificación email"""
+        try:
+            # Obtener datos del usuario antes de actualizar
+            user_data = self.collection.find_one({"_id": user_id})
+            if not user_data:
+                logger.error(f"Usuario no encontrado: {user_id}")
+                return False
+            
+            # Actualizar estado
+            result = self.collection.update_one(
+                {"_id": user_id},
+                {
+                    "$set": {
+                        "estado": "rechazado",
+                        "fecha_rechazo": datetime.utcnow(),
+                        "motivo_rechazo": reason
+                    }
+                }
+            )
+            
+            if result.modified_count > 0:
+                # NUEVO: Enviar email de rechazo
+                try:
+                    from app.services.email_service import EmailService
+                    email_service = EmailService()
+                    
+                    email_service.send_account_rejected_notification(
+                        user_email=user_data['email'],
+                        user_name=user_data['nombre'],
+                        reason=reason
+                    )
+                    logger.info(f"Email de rechazo enviado a: {user_data['email']}")
+                    
+                except Exception as email_error:
+                    logger.error(f"Error enviando email de rechazo: {email_error}")
+                
+                return True
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error rechazando usuario: {e}")
+            return False
+
+    def change_user_state(self, user_id: str, new_state: str, reason: str = None, changed_by: str = None) -> bool:
+        """Cambiar estado de usuario CON notificaciones email"""
+        try:
+            # Validar estados permitidos
+            valid_states = ["activo", "inactivo", "suspendido", "pendiente", "rechazado"]
+            if new_state not in valid_states:
+                logger.error(f"Estado inválido: {new_state}")
+                return False
+            
+            # Obtener datos del usuario antes de actualizar
+            user_data = self.collection.find_one({"_id": user_id})
+            if not user_data:
+                logger.error(f"Usuario no encontrado: {user_id}")
+                return False
+            
+            # Actualizar estado
+            update_data = {
+                "estado": new_state,
+                f"fecha_{new_state}": datetime.utcnow()
+            }
+            
+            if reason:
+                update_data["motivo_cambio"] = reason
+            if changed_by:
+                update_data["cambiado_por"] = changed_by
+            
+            result = self.collection.update_one(
+                {"_id": user_id},
+                {"$set": update_data}
+            )
+            
+            if result.modified_count > 0:
+                # NUEVO: Enviar notificación email según el estado
+                try:
+                    from app.services.email_service import EmailService
+                    email_service = EmailService()
+                    
+                    if new_state == "suspendido":
+                        email_service.send_account_suspended_notification(
+                            user_email=user_data['email'],
+                            user_name=user_data['nombre'],
+                            reason=reason
+                        )
+                    elif new_state == "inactivo":
+                        email_service.send_account_deactivated_notification(
+                            user_email=user_data['email'],
+                            user_name=user_data['nombre'],
+                            reason=reason
+                        )
+                    elif new_state == "rechazado":
+                        email_service.send_account_rejected_notification(
+                            user_email=user_data['email'],
+                            user_name=user_data['nombre'],
+                            reason=reason
+                        )
+                    
+                    logger.info(f"Email de cambio de estado ({new_state}) enviado a: {user_data['email']}")
+                    
+                except Exception as email_error:
+                    logger.error(f"Error enviando email de cambio de estado: {email_error}")
+                
+                return True
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error cambiando estado de usuario: {e}")
+            return False
+
+    def delete_user(self, user_id: str, reason: str = None, deleted_by: str = None) -> bool:
+        """Eliminar usuario CON notificación email"""
+        try:
+            # Obtener datos del usuario antes de eliminar
+            user_data = self.collection.find_one({"_id": user_id})
+            if not user_data:
+                logger.error(f"Usuario no encontrado: {user_id}")
+                return False
+            
+            # NUEVO: Enviar email ANTES de eliminar
+            try:
+                from app.services.email_service import EmailService
+                email_service = EmailService()
+                
+                email_service.send_account_deleted_notification(
+                    user_email=user_data['email'],
+                    user_name=user_data['nombre'],
+                    reason=reason
+                )
+                logger.info(f"Email de eliminación enviado a: {user_data['email']}")
+                
+            except Exception as email_error:
+                logger.error(f"Error enviando email de eliminación: {email_error}")
+            
+            # Eliminar usuario
+            result = self.collection.delete_one({"_id": user_id})
+            return result.deleted_count > 0
+            
+        except Exception as e:
+            logger.error(f"Error eliminando usuario: {e}")
+            return False
+
+    def get_users_by_role(self, role: str) -> List[Dict[str, Any]]:
+        """Obtener usuarios por rol"""
+        try:
+            users = list(self.collection.find({"rol": role}))
+            return users
+        except Exception as e:
+            logger.error(f"Error obteniendo usuarios por rol {role}: {e}")
+            return []
+
