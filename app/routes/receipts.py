@@ -1,5 +1,3 @@
-# app/routes/receipts.py - ACTUALIZADO CON INFORMACIÓN DEL CORRESPONSAL
-
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from datetime import datetime
@@ -16,11 +14,11 @@ receipt_service = ReceiptService()
 user_service = UserService()
 
 @router.post("/", response_model=dict)
-async def create_receipt(receipt: ReceiptCreate, current_user=Depends(get_current_user)):
+async def create_receipt(receipt: ReceiptModel, current_user=Depends(get_current_user)):  # ✅ CORREGIDO
     """Crear nuevo comprobante"""
     try:
         user_id = current_user.get("sub")
-        user_info = user_service.get_user_by_id(user_id)
+        user_info = user_service.get_user_info(user_id)
         
         if not user_info:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -32,15 +30,15 @@ async def create_receipt(receipt: ReceiptCreate, current_user=Depends(get_curren
             "codigo_corresponsal": user_info.get("codigo_corresponsal", "SIN_CODIGO"),
             "nombre_corresponsal": user_info.get("nombre", "Sin nombre"),
             "nombre_local": user_info.get("nombre_local", "Sin local"),
-            "rol_usuario": user_info.get("rol", "lector")  # Cambiado de "lector" a "lector"
+            "rol_usuario": user_info.get("rol", "cnb")  # ✅ YA CON EL NUEVO ROL
         }
         
-        # Validar que el usuario tenga código de corresponsal (para lector)
-        if (user_info.get("rol") == "lector" and 
+        # Validar que el usuario tenga código de corresponsal (para CNB)
+        if (user_info.get("rol") == "cnb" and 
             not user_info.get("codigo_corresponsal")):
             raise HTTPException(
                 status_code=400, 
-                detail="Usuario lector sin código de corresponsal asignado"
+                detail="Usuario CNB sin código de corresponsal asignado"
             )
         
         result = receipt_service.create_receipt(receipt_data)
@@ -63,18 +61,18 @@ async def create_receipt(receipt: ReceiptCreate, current_user=Depends(get_curren
 async def get_all_receipts(current_user=Depends(get_current_user)):
     """
     Obtener comprobantes según el rol del usuario
-    - Admin/operador: Ve todos los comprobantes con información del corresponsal
-    - lector: Ve solo sus propios comprobantes
+    - Admin/Asesor: Ve todos los comprobantes con información del corresponsal
+    - Lector: Ve solo sus propios comprobantes
     """
     try:
         user_role = current_user.get("rol")
         user_id = current_user.get("sub")
         
-        if user_role in ["admin", "operador"]:  # Cambiado de "operador" a "operador"
-            # Admin/operador ve TODOS los comprobantes con información del corresponsal
+        if user_role in ["admin", "asesor"]:  # Cambiado de "operador" a "asesor"
+              # Admin/Asesor ve TODOS los comprobantes
             receipts = receipt_service.get_all_receipts_with_corresponsal_info()
         else:
-            # lector ven solo sus propios comprobantes
+            # CNB ven solo sus propios comprobantes
             receipts = receipt_service.get_receipts_by_user(user_id)
         
         return {
@@ -94,7 +92,7 @@ async def get_receipts_by_corresponsal(
     current_user=Depends(role_required(["admin", "operador"]))  # Cambiado de "operador" a "operador"
 ):
     """
-    Obtener comprobantes filtrados por código de corresponsal (solo admin/operador)
+    Obtener comprobantes filtrados por código de corresponsal (solo admin/asesor)
     """
     try:
         receipts = receipt_service.get_receipts_by_corresponsal(codigo_corresponsal)
@@ -111,7 +109,7 @@ async def get_receipts_by_corresponsal(
 
 # NUEVO: Obtener lista de corresponsales disponibles (solo admin/operador)
 @router.get("/corresponsales", response_model=dict)
-async def get_available_corresponsales(current_user=Depends(role_required(["admin", "operador"]))):  # Cambiado
+async def get_available_corresponsales(current_user=Depends(role_required(["admin", "asesor"]))):  # Cambiado  # Cambiado
     """
     Obtener lista de corresponsales que tienen comprobantes
     """

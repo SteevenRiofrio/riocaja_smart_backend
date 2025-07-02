@@ -65,9 +65,9 @@ async def get_available_corresponsales(current_user=Depends(get_current_user)):
     Solo disponible para admin y operador
     """
     try:
-        user_role = current_user.get("rol", "lector")
+        user_role = current_user.get("rol", "cnb")
         
-        if user_role not in ["admin", "operador"]:
+        if user_role not in ["admin", "asesor"]:
             raise HTTPException(
                 status_code=403, 
                 detail="No tiene permisos para ver esta informacion"
@@ -96,7 +96,7 @@ async def get_report_statistics(
     """
     try:
         user_id = current_user.get("sub")
-        user_role = current_user.get("rol", "lector")
+        user_role = current_user.get("rol", "cnb")
         
         # Validar fechas
         is_valid, error_msg = excel_service.validate_date_range(
@@ -108,7 +108,7 @@ async def get_report_statistics(
             raise HTTPException(status_code=400, detail=error_msg)
         
         # Validar permisos para filtro por corresponsal
-        if request.codigo_corresponsal and user_role not in ["admin", "operador"]:
+        if request.codigo_corresponsal and user_role not in ["admin", "asesor"]:
             raise HTTPException(
                 status_code=403,
                 detail="No tiene permisos para filtrar por corresponsal"

@@ -10,14 +10,14 @@ class Estado(str, Enum):
 
 class Rol(str, Enum):
     admin = "admin"
-    operador = "operador"      
-    lector = "lector"  # Corresponsal No Bancario
+    asesor = "asesor"      # Asesor de Corresponsalía
+    cnb = "cnb"           # Corresponsal No Bancario
 
 class User(BaseModel):
     nombre: str
     email: EmailStr
     password_hash: str
-    rol: str = "lector"  # Corresponsal No Bancario
+    rol: str = "cnb"  # Por defecto CNB (antes era lector)
     estado: str = "pendiente"
     fecha_registro: datetime = Field(default_factory=datetime.utcnow)
     perfil_completo: bool = False

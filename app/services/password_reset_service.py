@@ -16,7 +16,7 @@ from app.config import (
     MAIL_FROM, MAIL_FROM_NAME, MAIL_SERVER, MAIL_PORT,
     MAIL_STARTTLS, RESET_CODE_EXPIRE_MINUTES, RESET_CODE_LENGTH
 )
-from app.utils.security import hash_password
+from app.services.crypto_service import hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -24,19 +24,51 @@ class PasswordResetService:
     def __init__(self):
         try:
             logger.info("Conectando a MongoDB para password reset...")
-            self.client = MongoClient(MONGO_URI)
+            self.client = MongoClient(
+                MONGO_URI,
+                connect=False,  # No conectar inmediatamente
+                serverSelectionTimeoutMS=30000,
+                connectTimeoutMS=30000,
+                socketTimeoutMS=30000,
+                maxPoolSize=10,
+                retryWrites=True,
+                retryReads=True,
+                maxIdleTimeMS=45000,
+                waitQueueTimeoutMS=10000
+            )
+            
             self.db = self.client[DATABASE_NAME]
             self.users = self.db["users"]
             self.reset_codes = self.db["password_reset_codes"]
-            logger.info("Conexion exitosa a la base de datos")
+            
+            # Probar conexión sin fallar
+            try:
+                self.client.admin.command('ping')
+                logger.info("✅ Conexión exitosa para password reset")
+            except Exception as ping_error:
+                logger.warning(f"⚠️ No se pudo hacer ping a MongoDB (password_reset): {ping_error}")
+                # Continuar sin fallar
+                
         except Exception as e:
-            logger.error(f"Error al conectar a MongoDB: {e}")
-            raise
+            logger.error(f"❌ Error al inicializar conexión MongoDB (password_reset): {e}")
+            # No hacer raise aquí
+            self.client = None
+            self.db = None
+            self.users = None
+            self.reset_codes = None
+
+    def _ensure_connection(self):
+        """Asegurar que la conexión esté disponible antes de usar"""
+        if self.client is None or self.db is None or self.users is None or self.reset_codes is None:
+            logger.error("Conexión a MongoDB no está inicializada")
+            raise Exception("Error de conexión a la base de datos")
 
     def _generate_reset_code(self) -> str:
+        """Generar código de reset de 6 dígitos"""
         return ''.join(random.choices(string.digits, k=RESET_CODE_LENGTH))
 
     def _send_email(self, to_email: str, subject: str, body: str) -> bool:
+        """Enviar email de notificación"""
         try:
             logger.info(f"Intentando enviar email a: {to_email}")
             
@@ -54,7 +86,7 @@ class PasswordResetService:
                         {body.replace(chr(10), '<br>')}
                         <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
                         <p style="font-size: 12px; color: #666;">
-                            Este es un mensaje automatico, por favor no responder a este email.
+                            Este es un mensaje automático, por favor no responder a este email.
                         </p>
                     </div>
                 </body>
@@ -82,7 +114,9 @@ class PasswordResetService:
             return False
 
     async def request_password_reset(self, email: str) -> Dict[str, any]:
+        """Solicitar código de recuperación de contraseña"""
         try:
+            self._ensure_connection()
             logger.info(f"Procesando solicitud de reset para: {email}")
             
             user = self.users.find_one({"email": email})
@@ -90,7 +124,7 @@ class PasswordResetService:
                 logger.warning(f"Intento de reset para email no registrado: {email}")
                 return {
                     "success": True,
-                    "message": "Si el email esta registrado, recibiras un codigo de recuperacion."
+                    "message": "Si el email está registrado, recibirás un código de recuperación."
                 }
 
             existing_request = self.reset_codes.find_one({
@@ -120,16 +154,16 @@ class PasswordResetService:
 
             self.reset_codes.insert_one(reset_data)
 
-            subject = "RioCaja Smart - Codigo de Recuperacion de Contrasena"
+            subject = "RioCaja Smart - Código de Recuperación de Contraseña"
             body = f"""
 Hola {user.get('nombre', 'Usuario')},
 
-Has solicitado recuperar tu contrasena en RioCaja Smart.
+Has solicitado recuperar tu contraseña en RioCaja Smart.
 
-Tu codigo de recuperacion es: {reset_code}
+Tu código de recuperación es: {reset_code}
 
-Este codigo:
-- Es valido por {RESET_CODE_EXPIRE_MINUTES} minutos
+Este código:
+- Es válido por {RESET_CODE_EXPIRE_MINUTES} minutos
 - Solo puede usarse una vez
 - Expira el {expires_at.strftime('%d/%m/%Y a las %H:%M')}
 
@@ -139,20 +173,19 @@ Saludos,
 Equipo RioCaja Smart
             """
 
-            email_sent = self._send_email(email, subject, body)
+            email_sent = self._send_email(to_email, subject, body)
             
             if email_sent:
-                logger.info(f"Codigo de reset enviado a: {email}")
+                logger.info(f"Código de reset enviado a: {email}")
                 return {
                     "success": True,
-                    "message": "Codigo de recuperacion enviado a tu email."
+                    "message": "Código de recuperación enviado a tu email."
                 }
             else:
-                self.reset_codes.delete_one({"email": email, "code": reset_code})
-                logger.error(f"Fallo envio de email para: {email}")
+                logger.error(f"Error enviando email a: {email}")
                 return {
                     "success": False,
-                    "message": "Error al enviar el email. Intenta nuevamente."
+                    "message": "Error al enviar el código. Intenta más tarde."
                 }
 
         except Exception as e:
@@ -163,8 +196,10 @@ Equipo RioCaja Smart
             }
 
     def verify_reset_code(self, email: str, code: str) -> Dict[str, any]:
+        """Verificar código de recuperación"""
         try:
-            logger.info(f"Verificando codigo para: {email}")
+            self._ensure_connection()
+            logger.info(f"Verificando código para: {email}")
             
             reset_request = self.reset_codes.find_one({
                 "email": email,
@@ -174,21 +209,16 @@ Equipo RioCaja Smart
             })
 
             if not reset_request:
-                logger.warning(f"Codigo invalido o expirado para: {email}")
+                logger.warning(f"Código inválido para: {email}")
                 return {
                     "success": False,
-                    "message": "Codigo invalido o expirado."
+                    "message": "Código inválido o expirado."
                 }
 
-            self.reset_codes.update_one(
-                {"_id": reset_request["_id"]},
-                {"$inc": {"attempts": 1}}
-            )
-
-            logger.info(f"Codigo verificado exitosamente para: {email}")
+            logger.info(f"Código verificado exitosamente para: {email}")
             return {
                 "success": True,
-                "message": "Codigo valido.",
+                "message": "Código verificado. Puedes cambiar tu contraseña.",
                 "reset_id": str(reset_request["_id"])
             }
 
@@ -200,8 +230,10 @@ Equipo RioCaja Smart
             }
 
     async def reset_password(self, email: str, code: str, new_password: str) -> Dict[str, any]:
+        """Cambiar contraseña usando código de verificación"""
         try:
-            logger.info(f"Ejecutando reset de contrasena para: {email}")
+            self._ensure_connection()
+            logger.info(f"Ejecutando reset de contraseña para: {email}")
             
             reset_request = self.reset_codes.find_one({
                 "email": email,
@@ -211,10 +243,10 @@ Equipo RioCaja Smart
             })
 
             if not reset_request:
-                logger.warning(f"Codigo invalido para reset de: {email}")
+                logger.warning(f"Código inválido para reset de: {email}")
                 return {
                     "success": False,
-                    "message": "Codigo invalido o expirado."
+                    "message": "Código inválido o expirado."
                 }
 
             user = self.users.find_one({"email": email})
@@ -242,11 +274,11 @@ Equipo RioCaja Smart
                 {"$set": {"used": True, "used_at": datetime.utcnow()}}
             )
 
-            subject = "RioCaja Smart - Contrasena Cambiada"
+            subject = "RioCaja Smart - Contraseña Cambiada"
             body = f"""
 Hola {user.get('nombre', 'Usuario')},
 
-Tu contrasena ha sido cambiada exitosamente.
+Tu contraseña ha sido cambiada exitosamente.
 
 Detalles del cambio:
 - Fecha: {datetime.utcnow().strftime('%d/%m/%Y a las %H:%M')}
@@ -260,10 +292,10 @@ Equipo RioCaja Smart
 
             self._send_email(email, subject, body)
 
-            logger.info(f"Contrasena cambiada exitosamente para: {email}")
+            logger.info(f"Contraseña cambiada exitosamente para: {email}")
             return {
                 "success": True,
-                "message": "Contrasena cambiada exitosamente."
+                "message": "Contraseña cambiada exitosamente."
             }
 
         except Exception as e:
@@ -274,25 +306,32 @@ Equipo RioCaja Smart
             }
 
     def get_reset_stats(self, email: str) -> Dict[str, any]:
+        """Obtener estadísticas de intentos de reset"""
         try:
+            self._ensure_connection()
+            
             active_request = self.reset_codes.find_one({
                 "email": email,
                 "expires_at": {"$gt": datetime.utcnow()},
                 "used": False
             })
 
-            last_request = self.reset_codes.find_one(
-                {"email": email},
-                sort=[("created_at", -1)]
-            )
-
-            return {
-                "email": email,
-                "has_active_request": active_request is not None,
-                "attempts_remaining": 3 - (active_request.get("attempts", 0) if active_request else 0),
-                "expires_at": active_request.get("expires_at") if active_request else None,
-                "last_request_at": last_request.get("created_at") if last_request else None
-            }
+            if active_request:
+                return {
+                    "email": email,
+                    "has_active_request": True,
+                    "attempts_remaining": max(0, 3 - active_request.get("attempts", 0)),
+                    "expires_at": active_request["expires_at"],
+                    "last_request_at": active_request["created_at"]
+                }
+            else:
+                return {
+                    "email": email,
+                    "has_active_request": False,
+                    "attempts_remaining": 3,
+                    "expires_at": None,
+                    "last_request_at": None
+                }
 
         except Exception as e:
             logger.error(f"Error en get_reset_stats: {str(e)}")
@@ -304,11 +343,19 @@ Equipo RioCaja Smart
                 "last_request_at": None
             }
 
-    def cleanup_expired_codes(self):
+    def cleanup_expired_codes(self) -> int:
+        """Limpiar códigos expirados"""
         try:
+            self._ensure_connection()
+            
             result = self.reset_codes.delete_many({
                 "expires_at": {"$lt": datetime.utcnow()}
             })
-            logger.info(f"Eliminados {result.deleted_count} codigos expirados")
+            
+            deleted_count = result.deleted_count
+            logger.info(f"Códigos expirados eliminados: {deleted_count}")
+            return deleted_count
+
         except Exception as e:
             logger.error(f"Error en cleanup_expired_codes: {str(e)}")
+            return 0

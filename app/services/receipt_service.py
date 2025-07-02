@@ -1,8 +1,6 @@
-# app/services/receipt_service.py - ACTUALIZADO CON MÉTODOS PARA CORRESPONSALES
-
 import logging
 from datetime import datetime
-from typing import List, Optional, Dict
+from typing import List, Dict
 from pymongo import MongoClient, DESCENDING
 from bson import ObjectId
 from app.config import MONGO_URI, DATABASE_NAME
@@ -12,52 +10,267 @@ logger = logging.getLogger(__name__)
 class ReceiptService:
     def __init__(self):
         try:
+            # CONFIGURACIÓN ROBUSTA SIMILAR A user_service.py
             logger.info("Conectando a MongoDB para receipts...")
-            self.client = MongoClient(MONGO_URI)
+            self.client = MongoClient(
+                MONGO_URI,
+                connect=False,  # No conectar inmediatamente
+                serverSelectionTimeoutMS=30000,  # 30 segundos
+                connectTimeoutMS=30000,
+                socketTimeoutMS=30000,
+                maxPoolSize=10,
+                retryWrites=True,
+                retryReads=True,
+                maxIdleTimeMS=45000,
+                waitQueueTimeoutMS=10000
+            )
+            
             self.db = self.client[DATABASE_NAME]
             self.receipts = self.db["receipts"]
-            self.users = self.db["users"]  # Para hacer joins/lookups
-            logger.info("Conexión exitosa a la base de datos")
-        except Exception as e:
-            logger.error(f"Error al conectar a MongoDB: {e}")
-            raise
-
-    def create_receipt(self, receipt_data: dict) -> Optional[str]:
-        """Crear un nuevo comprobante CON información del corresponsal"""
-        try:
-            # Validar que no exista el mismo número de transacción
-            existing_receipt = self.receipts.find_one({
-                "nro_transaccion": receipt_data["nro_transaccion"]
-            })
             
-            if existing_receipt:
-                raise ValueError("Ya existe un comprobante con este número de transacción")
+            # Probar conexión
+            try:
+                self.client.admin.command('ping')
+                logger.info("✅ Conexión exitosa a la base de datos para receipts")
+            except Exception as ping_error:
+                logger.warning(f"⚠️ No se pudo hacer ping a MongoDB (receipts): {ping_error}")
+                # Continuar sin fallar, la conexión se probará en la primera operación
+                
+        except Exception as e:
+            logger.error(f"❌ Error al inicializar conexión MongoDB (receipts): {e}")
+            # No hacer raise aquí, permitir que el servicio se inicialice
+            self.client = None
+            self.db = None
+            self.receipts = None
+
+    def _ensure_connection(self):
+        """Asegurar que la conexión esté disponible antes de usar"""
+        if self.client is None or self.db is None or self.receipts is None:
+            logger.error("Conexión a MongoDB no está inicializada")
+            raise Exception("Error de conexión a la base de datos")
+
+    def create_receipt(self, receipt_data: dict):
+        """Crear nuevo comprobante"""
+        try:
+            self._ensure_connection()
             
             result = self.receipts.insert_one(receipt_data)
-            
-            logger.info(f"Comprobante creado por corresponsal {receipt_data.get('codigo_corresponsal', 'N/A')}: {receipt_data['nro_transaccion']}")
-            return str(result.inserted_id)
+            logger.info(f"Comprobante creado: {result.inserted_id}")
+            return result.inserted_id
             
         except Exception as e:
             logger.error(f"Error al crear comprobante: {e}")
-            raise
+            return None
 
-    def get_all_receipts_with_corresponsal_info(self) -> List[dict]:
-        """Obtener TODOS los comprobantes con información del corresponsal (solo admin/operador)"""
+    def get_receipts_by_user(self, user_id: str):
+        """Obtener comprobantes de un usuario específico"""
         try:
+            self._ensure_connection()
+            
+            receipts = list(self.receipts.find(
+                {"user_id": ObjectId(user_id)}
+            ).sort("created_at", DESCENDING))
+            
+            for receipt in receipts:
+                receipt["_id"] = str(receipt["_id"])
+                if receipt.get("user_id"):
+                    receipt["user_id"] = str(receipt["user_id"])
+                    
+            logger.info(f"Comprobantes obtenidos para usuario {user_id}: {len(receipts)}")
+            return receipts
+            
+        except Exception as e:
+            logger.error(f"Error al obtener comprobantes del usuario {user_id}: {e}")
+            return []
+
+    
+    def get_all_receipts_with_corresponsal_info(self):
+        """Obtener todos los comprobantes con información del corresponsal (admin/asesor)"""
+        try:
+            self._ensure_connection()
+            
             receipts = list(self.receipts.find({}).sort("created_at", DESCENDING))
             
-            # Convertir ObjectId a string
+            for receipt in receipts:
+                receipt["_id"] = str(receipt["_id"])
+                if receipt.get("user_id"):
+                    receipt["user_id"] = str(receipt["user_id"])
+                    
+            logger.info(f"Todos los comprobantes obtenidos: {len(receipts)}")
+            return receipts
+            
+        except Exception as e:
+            logger.error(f"Error al obtener todos los comprobantes: {e}")
+            return []
+
+    def get_receipts_by_corresponsal(self, codigo_corresponsal: str):
+        """Obtener comprobantes filtrados por código de corresponsal"""
+        try:
+            self._ensure_connection()
+            
+            receipts = list(self.receipts.find(
+                {"codigo_corresponsal": codigo_corresponsal}
+            ).sort("created_at", DESCENDING))
+            
+            for receipt in receipts:
+                receipt["_id"] = str(receipt["_id"])
+                if receipt.get("user_id"):
+                    receipt["user_id"] = str(receipt["user_id"])
+                    
+            logger.info(f"Comprobantes obtenidos para corresponsal {codigo_corresponsal}: {len(receipts)}")
+            return receipts
+            
+        except Exception as e:
+            logger.error(f"Error al obtener comprobantes por corresponsal: {e}")
+            return []
+
+    def get_available_corresponsales(self):
+        """Obtener lista de corresponsales que tienen comprobantes"""
+        try:
+            self._ensure_connection()
+            
+            pipeline = [
+                {
+                    "$match": {
+                        "codigo_corresponsal": {"$exists": True, "$ne": None}
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": "$codigo_corresponsal",
+                        "count": {"$sum": 1},
+                        "nombre_corresponsal": {"$first": "$nombre_corresponsal"},
+                        "nombre_local": {"$first": "$nombre_local"}
+                    }
+                },
+                {
+                    "$sort": {"_id": 1}
+                }
+            ]
+            
+            result = list(self.receipts.aggregate(pipeline))
+            
+            # Formatear resultado
+            corresponsales = []
+            for item in result:
+                corresponsales.append({
+                    "codigo": item["_id"],
+                    "nombre": item.get("nombre_corresponsal", "Sin nombre"),
+                    "nombre_local": item.get("nombre_local", "Sin local"),
+                    "total_comprobantes": item["count"]
+                })
+            
+            logger.info(f"Se encontraron {len(corresponsales)} corresponsales con comprobantes")
+            return corresponsales
+            
+        except Exception as e:
+            logger.error(f"Error al obtener corresponsales: {e}")
+            return []
+
+    def delete_receipt(self, receipt_id: str):
+        """Eliminar comprobante por ID"""
+        try:
+            self._ensure_connection()
+            
+            result = self.receipts.delete_one({"_id": ObjectId(receipt_id)})
+            success = result.deleted_count > 0
+            
+            if success:
+                logger.info(f"Comprobante eliminado: {receipt_id}")
+            else:
+                logger.warning(f"No se encontró comprobante para eliminar: {receipt_id}")
+                
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error al eliminar comprobante {receipt_id}: {e}")
+            return False
+
+    def update_receipt(self, receipt_id: str, update_data: dict):
+        """Actualizar comprobante"""
+        try:
+            self._ensure_connection()
+            
+            update_data["updated_at"] = datetime.utcnow()
+            
+            result = self.receipts.update_one(
+                {"_id": ObjectId(receipt_id)},
+                {"$set": update_data}
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Comprobante actualizado: {receipt_id}")
+            else:
+                logger.warning(f"No se pudo actualizar comprobante: {receipt_id}")
+                
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error al actualizar comprobante {receipt_id}: {e}")
+            return False
+
+    def get_receipt_by_id(self, receipt_id: str):
+        """Obtener comprobante por ID"""
+        try:
+            self._ensure_connection()
+            
+            receipt = self.receipts.find_one({"_id": ObjectId(receipt_id)})
+            
+            if receipt:
+                receipt["_id"] = str(receipt["_id"])
+                if receipt.get("user_id"):
+                    receipt["user_id"] = str(receipt["user_id"])
+                logger.info(f"Comprobante encontrado: {receipt_id}")
+                return receipt
+            else:
+                logger.warning(f"Comprobante no encontrado: {receipt_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error al obtener comprobante {receipt_id}: {e}")
+            return None
+
+    def count_receipts_by_user(self, user_id: str):
+        """Contar comprobantes de un usuario"""
+        try:
+            self._ensure_connection()
+            
+            count = self.receipts.count_documents({"user_id": ObjectId(user_id)})
+            logger.info(f"Usuario {user_id} tiene {count} comprobantes")
+            return count
+            
+        except Exception as e:
+            logger.error(f"Error al contar comprobantes del usuario {user_id}: {e}")
+            return 0
+
+    def get_receipts_by_date_range(self, start_date: str, end_date: str, user_id: str = None):
+        """Obtener comprobantes por rango de fechas"""
+        try:
+            self._ensure_connection()
+            
+            query = {
+                "fecha": {
+                    "$gte": start_date,
+                    "$lte": end_date
+                }
+            }
+            
+            if user_id:
+                query["user_id"] = ObjectId(user_id)
+            
+            receipts = list(self.receipts.find(query).sort("created_at", DESCENDING))
+            
             for receipt in receipts:
                 receipt["_id"] = str(receipt["_id"])
                 if receipt.get("user_id"):
                     receipt["user_id"] = str(receipt["user_id"])
             
-            logger.info(f"Se obtuvieron {len(receipts)} comprobantes con información de corresponsal")
+            logger.info(f"Comprobantes obtenidos para rango {start_date}-{end_date}: {len(receipts)}")
             return receipts
             
         except Exception as e:
-            logger.error(f"Error al obtener comprobantes: {e}")
+            logger.error(f"Error al obtener comprobantes por rango de fechas: {e}")
             return []
 
     def get_receipts_by_user(self, user_id: str) -> List[dict]:
