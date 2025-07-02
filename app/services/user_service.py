@@ -247,7 +247,7 @@ class UserService:
             return []
 
     def create_admin_user(self, admin_data: dict) -> str:
-        """Crear usuario administrador"""
+        """Crear usuario administrador CON PERFIL COMPLETO"""
         try:
             self._ensure_connection()
             
@@ -261,7 +261,9 @@ class UserService:
                 "rol": "admin",
                 "estado": "activo",
                 "fecha_registro": datetime.utcnow(),
-                "perfil_completo": True,
+                "perfil_completo": True,  # ← IMPORTANTE: Admin siempre tiene perfil completo
+                "codigo_corresponsal": "ADMIN",  # Código especial para admin
+                "nombre_local": "Administración",  # Nombre por defecto
                 "session_id": str(uuid.uuid4()),
                 "creado_por": admin_data.get("creado_por", "sistema")
             }
@@ -292,14 +294,10 @@ class UserService:
             logger.error(f"Error contando admins: {e}")
             return 0
 
-    def make_user_admin(self, email: str, secret_key: str) -> bool:
-        """Convertir usuario en admin (setup inicial)"""
+    def make_user_admin(self, email: str) -> bool:
+        """Convertir usuario existente en admin CON PERFIL COMPLETO"""
         try:
             self._ensure_connection()
-            
-            # Verificar clave secreta (implementar según necesidades)
-            if secret_key != "admin_setup_key_2025":
-                return False
             
             result = self.users.update_one(
                 {"email": email},
@@ -307,14 +305,127 @@ class UserService:
                     "$set": {
                         "rol": "admin",
                         "estado": "activo",
-                        "perfil_completo": True,
+                        "perfil_completo": True,  # ← IMPORTANTE: Marcar perfil como completo
+                        "codigo_corresponsal": "ADMIN",
+                        "nombre_local": "Administración",
                         "fecha_admin": datetime.utcnow()
                     }
                 }
             )
-            return result.modified_count > 0
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Usuario convertido en admin: {email}")
+            return success
+            
         except Exception as e:
             logger.error(f"Error convirtiendo usuario en admin: {e}")
+            return False
+
+ def make_user_asesor(self, email: str) -> bool:
+        """Convertir usuario existente en asesor CON PERFIL COMPLETO"""
+        try:
+            self._ensure_connection()
+            
+            result = self.users.update_one(
+                {"email": email},
+                {
+                    "$set": {
+                        "rol": "asesor",
+                        "estado": "activo",
+                        "perfil_completo": True,  # ← IMPORTANTE: Marcar perfil como completo
+                        "codigo_corresponsal": "ASESOR",
+                        "nombre_local": "Asesoría",
+                        "fecha_asesor": datetime.utcnow()
+                    }
+                }
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Usuario convertido en asesor: {email}")
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error convirtiendo usuario en asesor: {e}")
+            return False
+
+    def mark_admin_profile_complete(self, user_id: str) -> bool:
+        """Marcar perfil de admin/asesor como completo automáticamente"""
+        try:
+            self._ensure_connection()
+            
+            user = self.users.find_one({"_id": ObjectId(user_id)})
+            if not user:
+                return False
+            
+            # Solo aplicar a admin y asesor
+            if user.get("rol") not in ["admin", "asesor"]:
+                return False
+            
+            codigo_corresponsal = "ADMIN" if user.get("rol") == "admin" else "ASESOR"
+            nombre_local = "Administración" if user.get("rol") == "admin" else "Asesoría"
+            
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
+                {
+                    "$set": {
+                        "perfil_completo": True,
+                        "codigo_corresponsal": codigo_corresponsal,
+                        "nombre_local": nombre_local,
+                        "perfil_auto_completado": datetime.utcnow()
+                    }
+                }
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Perfil de {user.get('rol')} auto-completado para usuario {user_id}")
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error auto-completando perfil admin/asesor {user_id}: {e}")
+            return False
+
+    def change_user_role(self, user_id: str, new_role: str, changed_by: str = None) -> bool:
+        """Cambiar rol de usuario Y auto-completar perfil si es admin/asesor"""
+        try:
+            self._ensure_connection()
+            
+            valid_roles = ["admin", "asesor", "cnb"]
+            if new_role not in valid_roles:
+                logger.error(f"Rol inválido: {new_role}")
+                return False
+            
+            update_data = {
+                "rol": new_role,
+                f"fecha_{new_role}": datetime.utcnow()
+            }
+            
+            if changed_by:
+                update_data["rol_cambiado_por"] = changed_by
+            
+            # Si el nuevo rol es admin o asesor, auto-completar perfil
+            if new_role in ["admin", "asesor"]:
+                update_data["perfil_completo"] = True
+                update_data["estado"] = "activo"
+                update_data["codigo_corresponsal"] = "ADMIN" if new_role == "admin" else "ASESOR"
+                update_data["nombre_local"] = "Administración" if new_role == "admin" else "Asesoría"
+            
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": update_data}
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Rol cambiado a {new_role} para usuario {user_id}")
+                if new_role in ["admin", "asesor"]:
+                    logger.info(f"Perfil auto-completado para {new_role}")
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error cambiando rol de usuario: {e}")
             return False
 
     def update_user_session(self, user_id: str, new_session_id: str):

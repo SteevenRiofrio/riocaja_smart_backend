@@ -188,13 +188,42 @@ def me(user=Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.post("/complete-profile")
-def complete_profile(profile: UserProfile, user=Depends(get_current_user)):
-    if not user_service:
-        raise HTTPException(status_code=503, detail="Servicio de usuario no disponible")
+async def complete_profile(profile: UserProfile, user=Depends(get_current_user)):
+    user_id = user.get("sub")
     
     try:
-        user_id = user.get("sub")
+        current_user = user_service.get_user_info(user_id)
+        if not current_user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
+        # NUEVO: Verificar si es admin o asesor
+        user_role = current_user.get("rol")
+        if user_role in ["admin", "asesor"]:
+            # Admin y asesor no necesitan completar perfil
+            # Marcar automáticamente como perfil completo si no lo está
+            if not current_user.get("perfil_completo", False):
+                user_service.mark_admin_profile_complete(user_id)
+            
+            raise HTTPException(
+                status_code=400, 
+                detail="Los administradores y asesores no necesitan completar perfil adicional"
+            )
+        
+        if current_user.get("estado") != "activo":
+            raise HTTPException(status_code=400, detail="Su cuenta aún no ha sido aprobada")
+        
+        if not current_user.get("codigo_corresponsal"):
+            raise HTTPException(status_code=400, detail="No tiene un código de corresponsal asignado")
+        
+        codigo_asignado = current_user.get("codigo_corresponsal")
+        codigo_enviado = profile.codigo_corresponsal
+        
+        if codigo_asignado != codigo_enviado:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"El código proporcionado no coincide con el asignado"
+            )
+       
         success = user_service.complete_user_profile_simple(
             user_id=user_id,
             nombre_local=profile.nombre_local
@@ -208,8 +237,9 @@ def complete_profile(profile: UserProfile, user=Depends(get_current_user)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error en complete-profile: {e}")
+        print(f"Error en complete-profile: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+
 
 @router.get("/pending-users", response_model=List[dict])
 async def get_pending_users(user=Depends(role_required(["admin", "asesor"]))):
@@ -399,4 +429,28 @@ def refresh_token(refresh_token: str):
             raise HTTPException(status_code=401, detail="Token de refresh inválido")
     except Exception as e:
         logger.error(f"Error en refresh: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@router.post("/make-admin")
+async def make_user_admin(
+    email_data: dict, 
+    current_user=Depends(role_required(["admin"]))
+):
+    """Convertir usuario existente en admin (solo admins pueden hacer esto)"""
+    try:
+        email = email_data.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Email requerido")
+        
+        success = user_service.make_user_admin(email)
+        
+        if success:
+            return {"message": f"Usuario {email} convertido en administrador exitosamente"}
+        else:
+            raise HTTPException(status_code=400, detail="No se pudo convertir el usuario en admin")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error en make-admin: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
