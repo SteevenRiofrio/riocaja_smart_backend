@@ -319,25 +319,6 @@ class ReceiptService:
             logger.error(f"Error al obtener comprobantes por rango de fechas: {e}")
             return []
 
-    def get_receipts_by_user(self, user_id: str) -> List[dict]:
-        """Obtener comprobantes de un usuario específico (para cnb)"""
-        try:
-            receipts = list(self.receipts.find({
-                "user_id": user_id
-            }).sort("created_at", DESCENDING))
-            
-            for receipt in receipts:
-                receipt["_id"] = str(receipt["_id"])
-                if receipt.get("user_id"):
-                    receipt["user_id"] = str(receipt["user_id"])
-            
-            logger.info(f"Se obtuvieron {len(receipts)} comprobantes del usuario {user_id}")
-            return receipts
-            
-        except Exception as e:
-            logger.error(f"Error al obtener comprobantes del usuario: {e}")
-            return []
-
     def get_receipts_by_corresponsal(self, codigo_corresponsal: str) -> List[dict]:
         """Obtener comprobantes filtrados por código de corresponsal"""
         try:
@@ -422,11 +403,12 @@ class ReceiptService:
     def get_receipts_by_date_and_user(self, date: str, user_id: str) -> List[dict]:
         """Obtener comprobantes por fecha Y usuario específico (cnb)"""
         try:
+            self._ensure_connection()
             date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
             
             query = {
                 "fecha": {"$in": date_variations},
-                "user_id": user_id
+                "user_id": ObjectId(user_id)  # ✅ DEBE SER ObjectId(user_id)
             }
             
             receipts = list(self.receipts.find(query).sort("created_at", DESCENDING))
@@ -462,16 +444,15 @@ class ReceiptService:
             return self._empty_report()
 
     def generate_closing_report_by_user(self, date: str, user_id: str) -> dict:
-        """Generar reporte de cierre para un usuario específico (cnb)"""
+        """Generar reporte de cierre solo para un usuario específico (cnb)"""
         try:
+            self._ensure_connection()
             date_variations = [date, date.replace("-", "/"), date.replace("/", "-")]
             
-            query = {
+            receipts = list(self.receipts.find({
                 "fecha": {"$in": date_variations},
-                "user_id": user_id
-            }
-            
-            receipts = list(self.receipts.find(query))
+                "user_id": ObjectId(user_id)  # ✅ DEBE SER ObjectId(user_id)
+            }))
             
             return self._process_receipts_for_report(receipts, f"Usuario {user_id}")
             
@@ -557,37 +538,23 @@ class ReceiptService:
             'scope': 'Ninguno'
         }
 
-    def delete_receipt(self, transaction_number: str) -> bool:
-        """Eliminar comprobante (admin/asesor)"""
+    def delete_receipt_by_user(self, transaction_number: str, user_id: str) -> bool:
+        """Eliminar comprobante solo si pertenece al usuario (cnb)"""
         try:
-            result = self.receipts.delete_one({"nro_transaccion": transaction_number})
+            self._ensure_connection()
+            result = self.receipts.delete_one({
+                "nro_transaccion": transaction_number,
+                "user_id": ObjectId(user_id)  # ✅ DEBE SER ObjectId(user_id)
+            })
             
             success = result.deleted_count > 0
             if success:
-                logger.info(f"Comprobante eliminado: {transaction_number}")
+                logger.info(f"Comprobante eliminado por usuario: {transaction_number}")
             
             return success
             
         except Exception as e:
             logger.error(f"Error al eliminar comprobante: {e}")
-            return False
-
-    def delete_receipt_by_user(self, transaction_number: str, user_id: str) -> bool:
-        """Eliminar comprobante solo si pertenece al usuario (cnb)"""
-        try:
-            result = self.receipts.delete_one({
-                "nro_transaccion": transaction_number,
-                "user_id": user_id
-            })
-            
-            success = result.deleted_count > 0
-            if success:
-                logger.info(f"Comprobante eliminado por usuario {user_id}: {transaction_number}")
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error al eliminar comprobante por usuario: {e}")
             return False
 
     def get_receipts_stats_by_corresponsal(self) -> List[dict]:
