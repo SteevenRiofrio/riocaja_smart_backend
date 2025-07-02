@@ -1,7 +1,6 @@
 # app/services/user_service.py - VERSIÓN COMPLETA Y CORREGIDA
 import logging
 import uuid
-from app.database import db
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pymongo import MongoClient
@@ -9,7 +8,6 @@ from bson import ObjectId
 from app.config import MONGO_URI, DATABASE_NAME
 from app.services.crypto_service import hash_password, verify_password
 from werkzeug.security import generate_password_hash, check_password_hash
-
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +29,8 @@ class UserService:
             )
             
             self.db = self.client[DATABASE_NAME]
-            self.users = self.db["users"]
+            self.users = self.db["users"]  # ← ESTA ES LA COLECCIÓN CORRECTA
+            self.collection = self.users  # ← AGREGAR ESTA LÍNEA PARA COMPATIBILIDAD
             
             # Probar conexión
             try:
@@ -47,6 +46,7 @@ class UserService:
             self.client = None
             self.db = None
             self.users = None
+            self.collection = None
 
     def _ensure_connection(self):
         """Asegurar que la conexión esté disponible antes de usar"""
@@ -54,65 +54,28 @@ class UserService:
             logger.error("Conexión a MongoDB no está inicializada")
             raise Exception("Error de conexión a la base de datos")
 
-    def register_user(self, nombre: str, email: str, password: str, rol: str = "cnb") -> dict:
-        """Registrar nuevo usuario CON notificaciones email"""
+    def register_user(self, nombre: str, email: str, password: str, rol: str = "cnb"):
         try:
-            # Verificar si el usuario ya existe
-            if self.collection.find_one({"email": email}):
-                raise ValueError("El usuario ya existe")
+            self._ensure_connection()
             
-            # Crear nuevo usuario
+            # Verificar si existe
+            if self.users.find_one({"email": email}):
+                raise ValueError("El email ya está registrado")
+            
+            # Crear usuario
             user_data = {
-                "_id": str(ObjectId()),
                 "nombre": nombre,
                 "email": email,
-                "password_hash": generate_password_hash(password),
+                "password_hash": hash_password(password),
                 "rol": rol,
                 "estado": "pendiente",
                 "fecha_registro": datetime.utcnow(),
-                "perfil_completo": False,
-                "session_id": str(uuid.uuid4()),
-                "intentos_fallidos": 0
+                "perfil_completo": False
             }
             
-            # Insertar usuario en la base de datos
-            result = self.collection.insert_one(user_data)
-            
-            # NUEVO: Enviar notificaciones por email
-            try:
-                from app.services.email_service import EmailService
-                email_service = EmailService()
-                
-                # 1. Email de confirmación al usuario
-                email_service.send_registration_confirmation(
-                    user_email=email,
-                    user_name=nombre
-                )
-                logger.info(f"Email de confirmación enviado a: {email}")
-                
-                # 2. Notificación a asesores sobre nuevo usuario pendiente
-                advisor_emails = email_service.get_advisor_emails()
-                if advisor_emails:
-                    email_service.send_new_user_notification_to_advisors(
-                        user_data={
-                            'nombre': nombre,
-                            'email': email,
-                            'rol': rol
-                        },
-                        advisor_emails=advisor_emails
-                    )
-                    logger.info(f"Notificación enviada a {len(advisor_emails)} asesores")
-                else:
-                    logger.warning("No se encontraron emails de asesores para notificar")
-                    
-            except Exception as email_error:
-                logger.error(f"Error enviando emails de registro: {email_error}")
-                # No fallar el registro por errores de email
-            
-            return {
-                "message": "Usuario registrado exitosamente. Espere la aprobación del administrador.",
-                "user_id": str(result.inserted_id)
-            }
+            result = self.users.insert_one(user_data)
+            logger.info(f"Usuario registrado: {email}")
+            return {"message": "Usuario registrado exitosamente", "user_id": str(result.inserted_id)}
             
         except ValueError:
             raise
@@ -120,31 +83,55 @@ class UserService:
             logger.error(f"Error registrando usuario: {e}")
             raise Exception("Error interno del servidor")
 
-    def authenticate_user(self, email: str, password: str) -> Optional[dict]:
-        """Autenticar usuario (sin cambios)"""
+    def authenticate_user(self, email: str, password: str):
         try:
-            user = self.collection.find_one({"email": email})
-            if user and check_password_hash(user["password_hash"], password):
-                # Actualizar session_id en cada login
-                new_session_id = str(uuid.uuid4())
-                self.collection.update_one(
-                    {"_id": user["_id"]},
-                    {"$set": {"session_id": new_session_id}}
-                )
-                user["session_id"] = new_session_id
-                return user
-            return None
+            self._ensure_connection()
+            
+            user = self.users.find_one({"email": email})
+            if not user:
+                logger.info(f"Usuario no encontrado: {email}")
+                return None
+                
+            if not verify_password(password, user["password_hash"]):
+                logger.info(f"Contraseña incorrecta para: {email}")
+                return None
+
+            # NUEVO: Generar nuevo session_id único
+            new_session_id = str(uuid.uuid4())
+            
+            # NUEVO: Actualizar session_id en la base de datos
+            self.users.update_one(
+                {"_id": user["_id"]},
+                {
+                    "$set": {
+                        "session_id": new_session_id,
+                        "last_login": datetime.utcnow()
+                    }
+                }
+            )
+            
+            # Agregar session_id al usuario retornado
+            user["session_id"] = new_session_id
+            user["_id"] = str(user["_id"])
+            
+            logger.info(f"Autenticación exitosa: {email} con session: {new_session_id[:8]}...")
+            return user
+            
         except Exception as e:
             logger.error(f"Error en autenticación: {e}")
             return None
 
-    def get_user_info(self, user_id: str) -> Optional[dict]:
-        """Obtener información de un usuario específico"""
+    def get_user_info(self, user_id: str):
+        """Obtener información del usuario por ID"""
         try:
-            user = self.collection.find_one({"_id": user_id})
+            self._ensure_connection()
+            
+            user = self.users.find_one({"_id": ObjectId(user_id)})
             if user:
-                user.pop("password_hash", None)
-            return user
+                user["_id"] = str(user["_id"])
+                return user
+            return None
+            
         except Exception as e:
             logger.error(f"Error obteniendo info del usuario {user_id}: {e}")
             return None
@@ -152,7 +139,11 @@ class UserService:
     def get_user_by_id(self, user_id: str) -> Optional[dict]:
         """Obtener usuario por ID"""
         try:
-            return self.collection.find_one({"_id": user_id})
+            self._ensure_connection()
+            user = self.users.find_one({"_id": ObjectId(user_id)})
+            if user:
+                user["_id"] = str(user["_id"])
+            return user
         except Exception as e:
             logger.error(f"Error obteniendo usuario por ID {user_id}: {e}")
             return None
@@ -160,15 +151,17 @@ class UserService:
     def approve_user_with_code(self, user_id: str, codigo_corresponsal: str, approved_by: str) -> bool:
         """Aprobar usuario con código de corresponsal CON notificación email"""
         try:
+            self._ensure_connection()
+            
             # Obtener datos del usuario antes de actualizar
-            user_data = self.collection.find_one({"_id": user_id})
+            user_data = self.users.find_one({"_id": ObjectId(user_id)})
             if not user_data:
                 logger.error(f"Usuario no encontrado: {user_id}")
                 return False
             
             # Actualizar usuario
-            result = self.collection.update_one(
-                {"_id": user_id},
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
                 {
                     "$set": {
                         "estado": "activo",
@@ -205,8 +198,10 @@ class UserService:
     def complete_user_profile_simple(self, user_id: str, nombre_local: str) -> bool:
         """Completar perfil simple"""
         try:
-            result = self.collection.update_one(
-                {"_id": user_id},
+            self._ensure_connection()
+            
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
                 {
                     "$set": {
                         "nombre_local": nombre_local,
@@ -215,7 +210,10 @@ class UserService:
                     }
                 }
             )
-            return result.modified_count > 0
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Perfil completado para usuario {user_id}")
+            return success
         except Exception as e:
             logger.error(f"Error completando perfil: {e}")
             return False
@@ -223,8 +221,11 @@ class UserService:
     def get_pending_users(self) -> List[dict]:
         """Obtener usuarios pendientes"""
         try:
-            users = list(self.collection.find({"estado": "pendiente"}))
+            self._ensure_connection()
+            
+            users = list(self.users.find({"estado": "pendiente"}))
             for user in users:
+                user["_id"] = str(user["_id"])
                 user.pop("password_hash", None)
             return users
         except Exception as e:
@@ -234,8 +235,11 @@ class UserService:
     def get_all_users(self) -> List[dict]:
         """Obtener todos los usuarios"""
         try:
-            users = list(self.collection.find({}))
+            self._ensure_connection()
+            
+            users = list(self.users.find({}))
             for user in users:
+                user["_id"] = str(user["_id"])
                 user.pop("password_hash", None)
             return users
         except Exception as e:
@@ -245,14 +249,15 @@ class UserService:
     def create_admin_user(self, admin_data: dict) -> str:
         """Crear usuario administrador"""
         try:
-            if self.collection.find_one({"email": admin_data["email"]}):
+            self._ensure_connection()
+            
+            if self.users.find_one({"email": admin_data["email"]}):
                 raise ValueError("El administrador ya existe")
             
             user_data = {
-                "_id": str(ObjectId()),
                 "nombre": admin_data["nombre"],
                 "email": admin_data["email"],
-                "password_hash": generate_password_hash(admin_data["password"]),
+                "password_hash": hash_password(admin_data["password"]),
                 "rol": "admin",
                 "estado": "activo",
                 "fecha_registro": datetime.utcnow(),
@@ -261,7 +266,8 @@ class UserService:
                 "creado_por": admin_data.get("creado_por", "sistema")
             }
             
-            result = self.collection.insert_one(user_data)
+            result = self.users.insert_one(user_data)
+            logger.info(f"Admin creado: {admin_data['email']}")
             return str(result.inserted_id)
             
         except Exception as e:
@@ -280,7 +286,8 @@ class UserService:
     def count_admins(self) -> int:
         """Contar administradores"""
         try:
-            return self.collection.count_documents({"rol": "admin"})
+            self._ensure_connection()
+            return self.users.count_documents({"rol": "admin"})
         except Exception as e:
             logger.error(f"Error contando admins: {e}")
             return 0
@@ -288,11 +295,13 @@ class UserService:
     def make_user_admin(self, email: str, secret_key: str) -> bool:
         """Convertir usuario en admin (setup inicial)"""
         try:
+            self._ensure_connection()
+            
             # Verificar clave secreta (implementar según necesidades)
             if secret_key != "admin_setup_key_2025":
                 return False
             
-            result = self.collection.update_one(
+            result = self.users.update_one(
                 {"email": email},
                 {
                     "$set": {
@@ -306,40 +315,6 @@ class UserService:
             return result.modified_count > 0
         except Exception as e:
             logger.error(f"Error convirtiendo usuario en admin: {e}")
-            return False
-
-    def change_user_state(self, user_id: str, new_state: str):
-        """Cambiar estado de un usuario"""
-        try:
-            self._ensure_connection()
-            
-            # Validar que el usuario existe
-            user = self.users.find_one({"_id": ObjectId(user_id)})
-            if not user:
-                logger.warning(f"Usuario no encontrado: {user_id}")
-                return False
-            
-            # Actualizar estado
-            result = self.users.update_one(
-                {"_id": ObjectId(user_id)},
-                {
-                    "$set": {
-                        "estado": new_state,
-                        "estado_actualizado_en": datetime.utcnow()
-                    }
-                }
-            )
-            
-            success = result.modified_count > 0
-            if success:
-                logger.info(f"Estado del usuario {user_id} cambiado a {new_state}")
-            else:
-                logger.warning(f"No se pudo cambiar estado del usuario {user_id}")
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error al cambiar estado del usuario {user_id}: {e}")
             return False
 
     def update_user_session(self, user_id: str, new_session_id: str):
@@ -368,7 +343,6 @@ class UserService:
             return False
 
     def get_user_session_id(self, user_id: str):
-
         """Obtener el session_id actual del usuario"""
         try:
             self._ensure_connection()
@@ -387,15 +361,17 @@ class UserService:
     def reject_user(self, user_id: str, reason: str = None) -> bool:
         """Rechazar usuario CON notificación email"""
         try:
+            self._ensure_connection()
+            
             # Obtener datos del usuario antes de actualizar
-            user_data = self.collection.find_one({"_id": user_id})
+            user_data = self.users.find_one({"_id": ObjectId(user_id)})
             if not user_data:
                 logger.error(f"Usuario no encontrado: {user_id}")
                 return False
             
             # Actualizar estado
-            result = self.collection.update_one(
-                {"_id": user_id},
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
                 {
                     "$set": {
                         "estado": "rechazado",
@@ -431,6 +407,8 @@ class UserService:
     def change_user_state(self, user_id: str, new_state: str, reason: str = None, changed_by: str = None) -> bool:
         """Cambiar estado de usuario CON notificaciones email"""
         try:
+            self._ensure_connection()
+            
             # Validar estados permitidos
             valid_states = ["activo", "inactivo", "suspendido", "pendiente", "rechazado"]
             if new_state not in valid_states:
@@ -438,7 +416,7 @@ class UserService:
                 return False
             
             # Obtener datos del usuario antes de actualizar
-            user_data = self.collection.find_one({"_id": user_id})
+            user_data = self.users.find_one({"_id": ObjectId(user_id)})
             if not user_data:
                 logger.error(f"Usuario no encontrado: {user_id}")
                 return False
@@ -454,8 +432,8 @@ class UserService:
             if changed_by:
                 update_data["cambiado_por"] = changed_by
             
-            result = self.collection.update_one(
-                {"_id": user_id},
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
                 {"$set": update_data}
             )
             
@@ -499,8 +477,10 @@ class UserService:
     def delete_user(self, user_id: str, reason: str = None, deleted_by: str = None) -> bool:
         """Eliminar usuario CON notificación email"""
         try:
+            self._ensure_connection()
+            
             # Obtener datos del usuario antes de eliminar
-            user_data = self.collection.find_one({"_id": user_id})
+            user_data = self.users.find_one({"_id": ObjectId(user_id)})
             if not user_data:
                 logger.error(f"Usuario no encontrado: {user_id}")
                 return False
@@ -521,7 +501,7 @@ class UserService:
                 logger.error(f"Error enviando email de eliminación: {email_error}")
             
             # Eliminar usuario
-            result = self.collection.delete_one({"_id": user_id})
+            result = self.users.delete_one({"_id": ObjectId(user_id)})
             return result.deleted_count > 0
             
         except Exception as e:
@@ -531,9 +511,64 @@ class UserService:
     def get_users_by_role(self, role: str) -> List[Dict[str, Any]]:
         """Obtener usuarios por rol"""
         try:
-            users = list(self.collection.find({"rol": role}))
+            self._ensure_connection()
+            
+            users = list(self.users.find({"rol": role}))
+            for user in users:
+                user["_id"] = str(user["_id"])
+                user.pop("password_hash", None)
             return users
         except Exception as e:
             logger.error(f"Error obteniendo usuarios por rol {role}: {e}")
             return []
 
+    def get_user_by_email(self, email: str):
+        """Obtener usuario por email"""
+        try:
+            self._ensure_connection()
+            
+            user = self.users.find_one({"email": email})
+            if user:
+                user["_id"] = str(user["_id"])
+                return user
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error al obtener usuario por email {email}: {e}")
+            return None
+
+    def update_password(self, user_id: str, new_password: str):
+        """Actualizar contraseña del usuario"""
+        try:
+            self._ensure_connection()
+            
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
+                {
+                    "$set": {
+                        "password_hash": hash_password(new_password),
+                        "password_updated_at": datetime.utcnow()
+                    },
+                    "$unset": {
+                        "session_id": ""  # Invalidar sesión actual
+                    }
+                }
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Contraseña actualizada para usuario {user_id}")
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error al actualizar contraseña del usuario {user_id}: {e}")
+            return False
+
+    def close_connection(self):
+        """Cerrar conexión a MongoDB"""
+        try:
+            if self.client:
+                self.client.close()
+                logger.info("Conexión a MongoDB cerrada")
+        except Exception as e:
+            logger.error(f"Error al cerrar conexión MongoDB: {e}")
