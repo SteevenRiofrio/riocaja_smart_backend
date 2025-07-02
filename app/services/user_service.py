@@ -44,10 +44,31 @@ class UserService:
             self.users = None
             self.collection = None
 
-    def _ensure_connection(self):
-        if self.client is None or self.db is None or self.users is None:
-            logger.error("Conexión a MongoDB no está inicializada")
-            raise Exception("Error de conexión a la base de datos")
+def _ensure_connection(self):
+    """Asegurar que la conexión a MongoDB está activa"""
+    try:
+        if self.client is None:
+            logger.info("Reconectando a MongoDB...")
+            self.client = MongoClient(self.connection_string)
+            self.db = self.client[self.database_name]
+            self.users = self.db.users
+        
+        # ✅ CORRECCIÓN: Verificar la conexión con ping
+        self.client.admin.command('ping')
+        logger.debug("Conexión a MongoDB verificada exitosamente")
+        
+    except Exception as e:
+        logger.error(f"Error en conexión a MongoDB: {e}")
+        # Reintentar una vez
+        try:
+            self.client = MongoClient(self.connection_string)
+            self.db = self.client[self.database_name]
+            self.users = self.db.users
+            self.client.admin.command('ping')
+            logger.info("Reconexión a MongoDB exitosa")
+        except Exception as retry_error:
+            logger.error(f"Error en reintento de conexión: {retry_error}")
+            raise Exception(f"No se pudo conectar a MongoDB: {retry_error}")
 
     def register_user(self, nombre: str, email: str, password: str, rol: str = "cnb"):
         try:
@@ -214,18 +235,59 @@ class UserService:
             logger.error(f"Error obteniendo usuarios pendientes: {e}")
             return []
 
-    def get_all_users(self) -> List[dict]:
+def get_all_users(self) -> List[dict]:
+    """Obtener todos los usuarios del sistema"""
+    try:
+        self._ensure_connection()
+        
+        # ✅ CORRECCIÓN: Agregar logging detallado para debuggear
+        logger.info("Intentando obtener todos los usuarios de la base de datos")
+        
+        # ✅ CORRECCIÓN: Verificar que la colección existe
+        if self.users is None:
+            logger.error("La colección 'users' no está inicializada")
+            return []
+        
+        # ✅ CORRECCIÓN: Obtener usuarios con manejo de errores específico
         try:
-            self._ensure_connection()
+            users_cursor = self.users.find({})
+            users = list(users_cursor)
+            logger.info(f"Se encontraron {len(users)} usuarios en la base de datos")
             
-            users = list(self.users.find({}))
-            for user in users:
+        except Exception as db_error:
+            logger.error(f"Error al consultar la base de datos: {db_error}")
+            return []
+        
+        # ✅ CORRECCIÓN: Procesar usuarios con validación
+        processed_users = []
+        for user in users:
+            try:
+                # Verificar que el usuario tiene los campos básicos
+                if "_id" not in user:
+                    logger.warning(f"Usuario sin _id encontrado: {user}")
+                    continue
+                
+                # Convertir ObjectId a string y limpiar datos sensibles
                 user["_id"] = str(user["_id"])
                 user.pop("password_hash", None)
-            return users
-        except Exception as e:
-            logger.error(f"Error obteniendo todos los usuarios: {e}")
-            return []
+                user.pop("session_id", None)  # También remover session_id por seguridad
+                
+                processed_users.append(user)
+                
+            except Exception as user_error:
+                logger.error(f"Error procesando usuario individual: {user_error}")
+                logger.error(f"Datos del usuario problemático: {user}")
+                continue
+        
+        logger.info(f"Se procesaron exitosamente {len(processed_users)} usuarios")
+        return processed_users
+        
+    except Exception as e:
+        logger.error(f"Error crítico obteniendo todos los usuarios: {e}")
+        logger.error(f"Tipo de error: {type(e).__name__}")
+        import traceback
+        logger.error(f"Stack trace completo: {traceback.format_exc()}")
+        return []
 
     # ✅ FUNCIONES ADMIN CORREGIDAS
     def mark_admin_profile_complete(self, user_id: str) -> bool:
