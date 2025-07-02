@@ -4,6 +4,7 @@ from typing import List, Dict
 from pymongo import MongoClient, DESCENDING
 from bson import ObjectId
 from app.config import MONGO_URI, DATABASE_NAME
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -50,16 +51,61 @@ class ReceiptService:
             raise Exception("Error de conexión a la base de datos")
 
     def create_receipt(self, receipt_data: dict):
-        """Crear nuevo comprobante"""
+        """Crear comprobante con manejo de nro_transaccion duplicado"""
         try:
             self._ensure_connection()
             
-            result = self.receipts.insert_one(receipt_data)
-            logger.info(f"Comprobante creado: {result.inserted_id}")
-            return result.inserted_id
+            # SOLUCIÓN: Manejar nro_transaccion vacío o None
+            nro_transaccion = receipt_data.get('nro_transaccion', '').strip()
             
+            if not nro_transaccion or nro_transaccion == '':
+                # Generar un número de transacción único si está vacío
+                timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+                unique_id = str(uuid.uuid4())[:8].upper()
+                nro_transaccion = f"AUTO_{timestamp}_{unique_id}"
+                
+                logger.warning(f"Nro_transaccion vacío, generando automático: {nro_transaccion}")
+            
+            # Actualizar el campo en receipt_data
+            receipt_data['nro_transaccion'] = nro_transaccion
+            
+            # Verificar si ya existe este número de transacción
+            existing = self.receipts.find_one({"nro_transaccion": nro_transaccion})
+            if existing:
+                # Si existe, generar otro número único
+                timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+                unique_id = str(uuid.uuid4())[:8].upper()
+                nro_transaccion = f"DUP_{timestamp}_{unique_id}"
+                receipt_data['nro_transaccion'] = nro_transaccion
+                
+                logger.warning(f"Nro_transaccion duplicado, generando nuevo: {nro_transaccion}")
+            
+            result = self.receipts.insert_one(receipt_data)
+            
+            if result.inserted_id:
+                logger.info(f"Comprobante creado exitosamente: {result.inserted_id}")
+                return result.inserted_id
+            else:
+                logger.error("No se pudo insertar el comprobante")
+                return None
+                
         except Exception as e:
             logger.error(f"Error al crear comprobante: {e}")
+            
+            # Si aún hay error de duplicado, intentar una vez más con UUID completo
+            if "E11000 duplicate key error" in str(e):
+                try:
+                    unique_nro = f"ERR_{datetime.now().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())}"
+                    receipt_data['nro_transaccion'] = unique_nro
+                    
+                    result = self.receipts.insert_one(receipt_data)
+                    logger.info(f"Comprobante creado con número único de emergencia: {unique_nro}")
+                    return result.inserted_id
+                    
+                except Exception as e2:
+                    logger.error(f"Error crítico al crear comprobante: {e2}")
+                    return None
+            
             return None
 
     def get_receipts_by_user(self, user_id: str):
