@@ -226,77 +226,126 @@ class UserService:
             logger.error(f"Error obteniendo todos los usuarios: {e}")
             return []
 
-    def create_admin_user(self, admin_data: dict) -> str:
-        try:
-            self._ensure_connection()
-            
-            if self.users.find_one({"email": admin_data["email"]}):
-                raise ValueError("El administrador ya existe")
-            
-            user_data = {
-                "nombre": admin_data["nombre"],
-                "email": admin_data["email"],
-                "password_hash": hash_password(admin_data["password"]),
-                "rol": "admin",
-                "estado": "activo",
-                "fecha_registro": datetime.utcnow(),
-                "perfil_completo": True,
-                "codigo_corresponsal": "ADMIN",
-                "nombre_local": "Administración",
-                "session_id": str(uuid.uuid4()),
-                "creado_por": admin_data.get("creado_por", "sistema")
-            }
-            
-            result = self.users.insert_one(user_data)
-            logger.info(f"Admin creado: {admin_data['email']}")
+def create_admin_user(self, admin_data: dict) -> str:
+    """Crear usuario administrador directamente"""
+    try:
+        # Validar datos requeridos
+        required_fields = ["nombre", "email", "password"]
+        for field in required_fields:
+            if not admin_data.get(field):
+                raise ValueError(f"Campo requerido faltante: {field}")
+        
+        # Verificar si el email ya existe
+        existing_user = self.users_collection.find_one({"email": admin_data["email"]})
+        if existing_user:
+            raise ValueError("Email ya registrado")
+        
+        # Hash de la contraseña
+        password_hash = self.pwd_context.hash(admin_data["password"])
+        
+        # Crear documento de usuario admin
+        user_doc = {
+            "nombre": admin_data["nombre"],
+            "email": admin_data["email"].lower(),
+            "password_hash": password_hash,
+            "rol": "admin",
+            "estado": "activo",  # Admin se activa inmediatamente
+            "perfil_completo": True,  # Admin no necesita completar perfil
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "approved_at": datetime.utcnow(),
+            "approved_by": "system",
+            "codigo_corresponsal": None,  # Admin no necesita código
+            "nombre_local": None,  # Admin no necesita local
+        }
+        
+        # Insertar en la base de datos
+        result = self.users_collection.insert_one(user_doc)
+        
+        if result.inserted_id:
+            self.logger.info(f"✅ Usuario admin creado: {admin_data['email']}")
             return str(result.inserted_id)
+        else:
+            raise Exception("Error al insertar en la base de datos")
             
-        except Exception as e:
-            logger.error(f"Error creando admin: {e}")
-            raise
+    except ValueError as e:
+        self.logger.error(f"❌ Error de validación creando admin: {e}")
+        raise
+    except Exception as e:
+        self.logger.error(f"❌ Error creando usuario admin: {e}")
+        raise Exception("Error interno al crear administrador")
 
-    def create_first_admin(self, admin_data: dict) -> str:
-        try:
-            admin_data["creado_por"] = "setup_inicial"
-            return self.create_admin_user(admin_data)
-        except Exception as e:
-            logger.error(f"Error creando primer admin: {e}")
-            raise
 
-    def count_admins(self) -> int:
-        try:
-            self._ensure_connection()
-            return self.users.count_documents({"rol": "admin"})
-        except Exception as e:
-            logger.error(f"Error contando admins: {e}")
-            return 0
 
-    def make_user_admin(self, email: str) -> bool:
-        try:
-            self._ensure_connection()
-            
-            result = self.users.update_one(
-                {"email": email},
-                {
-                    "$set": {
-                        "rol": "admin",
-                        "estado": "activo",
-                        "perfil_completo": True,
-                        "codigo_corresponsal": "ADMIN",
-                        "nombre_local": "Administración",
-                        "fecha_admin": datetime.utcnow()
-                    }
-                }
-            )
-            
-            success = result.modified_count > 0
-            if success:
-                logger.info(f"Usuario convertido en admin: {email}")
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error convirtiendo usuario en admin: {e}")
+def create_first_admin(self, admin_data: dict) -> bool:
+    """Crear el primer administrador del sistema"""
+    try:
+        # Verificar que no existan admins
+        admin_count = self.users_collection.count_documents({"rol": "admin"})
+        if admin_count > 0:
+            raise ValueError("Ya existe un administrador en el sistema")
+        
+        # Crear admin usando la función existente
+        admin_id = self.create_admin_user(admin_data)
+        
+        if admin_id:
+            self.logger.info(f"✅ Primer administrador creado exitosamente: {admin_id}")
+            return True
+        else:
             return False
+            
+    except Exception as e:
+        self.logger.error(f"❌ Error creando primer admin: {e}")
+        raise
+
+def count_admins(self) -> int:
+    """Contar cuántos administradores existen"""
+    try:
+        return self.users_collection.count_documents({"rol": "admin"})
+    except Exception as e:
+        self.logger.error(f"❌ Error contando admins: {e}")
+        return 0
+
+def make_user_admin(self, email: str, secret_key: str = None) -> bool:
+    """Convertir usuario existente en administrador"""
+    try:
+        # Si se proporciona secret_key, validarla
+        if secret_key:
+            expected_key = os.getenv("ADMIN_SECRET_KEY", "riocaja2024")
+            if secret_key != expected_key:
+                self.logger.warning(f"⚠️  Intento de crear admin con clave incorrecta")
+                return False
+        
+        # Buscar usuario por email
+        user = self.users_collection.find_one({"email": email.lower()})
+        if not user:
+            self.logger.warning(f"⚠️  Usuario no encontrado para hacer admin: {email}")
+            return False
+        
+        # Actualizar usuario a admin
+        result = self.users_collection.update_one(
+            {"email": email.lower()},
+            {
+                "$set": {
+                    "rol": "admin",
+                    "estado": "activo",
+                    "perfil_completo": True,  # Admin no necesita completar perfil
+                    "updated_at": datetime.utcnow(),
+                    "promoted_to_admin_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        if result.modified_count > 0:
+            self.logger.info(f"✅ Usuario convertido a admin: {email}")
+            return True
+        else:
+            self.logger.warning(f"⚠️  No se pudo convertir usuario a admin: {email}")
+            return False
+            
+    except Exception as e:
+        self.logger.error(f"❌ Error convirtiendo usuario a admin: {e}")
+        return False
 
     def make_user_asesor(self, email: str) -> bool:
         try:
@@ -325,31 +374,32 @@ class UserService:
             logger.error(f"Error convirtiendo usuario en asesor: {e}")
             return False
 
-    def mark_admin_profile_complete(self, user_id: str) -> bool:
-        try:
-            self._ensure_connection()
-            
-            user = self.users.find_one({"_id": ObjectId(user_id)})
-            if not user:
-                return False
-            
-            if user.get("rol") not in ["admin", "asesor"]:
-                return False
-            
-            codigo_corresponsal = "ADMIN" if user.get("rol") == "admin" else "ASESOR"
-            nombre_local = "Administración" if user.get("rol") == "admin" else "Asesoría"
-            
-            result = self.users.update_one(
-                {"_id": ObjectId(user_id)},
-                {
-                    "$set": {
-                        "perfil_completo": True,
-                        "codigo_corresponsal": codigo_corresponsal,
-                        "nombre_local": nombre_local,
-                        "perfil_auto_completado": datetime.utcnow()
-                    }
+def mark_admin_profile_complete(self, user_id: str) -> bool:
+    """Marcar perfil de admin/asesor como completo automáticamente"""
+    try:
+        if not ObjectId.is_valid(user_id):
+            return False
+        
+        result = self.users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "$set": {
+                    "perfil_completo": True,
+                    "updated_at": datetime.utcnow()
                 }
-            )
+            }
+        )
+        
+        if result.modified_count > 0:
+            self.logger.info(f"✅ Perfil de admin marcado como completo: {user_id}")
+            return True
+        else:
+            self.logger.warning(f"⚠️  No se pudo marcar perfil como completo: {user_id}")
+            return False
+            
+    except Exception as e:
+        self.logger.error(f"❌ Error marcando perfil admin como completo: {e}")
+        return False
             
             success = result.modified_count > 0
             if success:
