@@ -66,12 +66,43 @@ class RejectUserRequest(BaseModel):
     user_id: str
     reason: Optional[str] = None
 
+class ChangeUserRoleRequest(BaseModel):
+    user_id: str
+    role: str
+
+
 # Inicializar servicio con validación
 try:
     user_service = UserService() if UserService else None
 except Exception as e:
     logger.error(f"Error inicializando UserService: {e}")
     user_service = None
+
+@router.post("/change-role")
+async def change_user_role(
+    request: ChangeUserRoleRequest, 
+    current_user=Depends(role_required(["admin"]))
+):
+    if not user_service:
+        raise HTTPException(status_code=503, detail="Servicio de usuario no disponible")
+    
+    try:
+        success = user_service.change_user_role(
+            user_id=request.user_id,
+            new_role=request.role,
+            changed_by=current_user.get("sub")
+        )
+        
+        if success:
+            return {"message": f"Rol de usuario cambiado a {request.role}"}
+        else:
+            raise HTTPException(status_code=400, detail="Error al cambiar rol")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en change-role: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 # Endpoint de health check
 @router.get("/health")
