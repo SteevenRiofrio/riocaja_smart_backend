@@ -38,8 +38,8 @@ async def mark_message_as_read(request: MessageRead, user=Depends(get_current_us
     return {"success": success}
 
 @router.post("/create", summary="Crear nuevo mensaje")
-async def create_message(message: MessageCreate, user=Depends(role_required(["admin", "operador"]))):
-    """Crea un nuevo mensaje (solo admin y operador)"""
+async def create_message(message: MessageCreate, user=Depends(role_required(["admin", "asesor"]))):
+    """Crea un nuevo mensaje (solo admin y asesor)"""
     admin_id = user.get("sub")
     try:
         created_message = message_service.create_message(
@@ -55,8 +55,8 @@ async def create_message(message: MessageCreate, user=Depends(role_required(["ad
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/{message_id}", summary="Eliminar mensaje")
-async def delete_message(message_id: str, user=Depends(role_required(["admin", "operador"]))):
-    """Elimina un mensaje (solo admin y operador)"""
+async def delete_message(message_id: str, user=Depends(role_required(["admin", "asesor"]))):
+    """Elimina un mensaje (solo admin y asesor)"""
     success = message_service.delete_message(message_id)
     if not success:
         raise HTTPException(status_code=404, detail="Mensaje no encontrado")

@@ -116,7 +116,7 @@ def admin_required(current_user: dict = Depends(get_current_user)):
     return current_user
 
 def admin_or_asesor_required(current_user: dict = Depends(get_current_user)):
-    """Verificar que el usuario sea admin o asesor (antes operador)"""
+    """Verificar que el usuario sea admin o asesor (antes asesor)"""
     user_role = current_user.get("rol")
     if user_role not in ["admin", "asesor"]:
         raise HTTPException(
