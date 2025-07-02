@@ -65,6 +65,61 @@ class UserService:
             self.users = None
             self.collection = None
 
+    def change_user_role(self, user_id: str, new_role: str, changed_by: str = None) -> bool:
+        """Cambiar rol de usuario"""
+    try:
+        self._ensure_connection()
+        
+        # Roles válidos en tu sistema
+        valid_roles = ["admin", "asesor", "cnb"]
+        if new_role not in valid_roles:
+            logger.error(f"Rol inválido: {new_role}")
+            return False
+        
+        # Verificar que el usuario existe
+        user_data = self.users.find_one({"_id": ObjectId(user_id)})
+        if not user_data:
+            logger.error(f"Usuario no encontrado: {user_id}")
+            return False
+        
+        # Datos de actualización
+        update_data = {
+            "rol": new_role,
+            "fecha_cambio_rol": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        # Si es admin o asesor, marcar perfil como completo y asignar códigos especiales
+        if new_role in ["admin", "asesor"]:
+            update_data.update({
+                "perfil_completo": True,
+                "estado": "activo",
+                "codigo_corresponsal": new_role.upper(),
+                "nombre_local": "Administración" if new_role == "admin" else "Asesoría"
+            })
+        
+        # Registrar quién hizo el cambio
+        if changed_by:
+            update_data["rol_cambiado_por"] = changed_by
+        
+        # Actualizar en la base de datos
+        result = self.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": update_data}
+        )
+        
+        success = result.modified_count > 0
+        if success:
+            logger.info(f"Rol de usuario cambiado a '{new_role}' para usuario: {user_id}")
+        else:
+            logger.warning(f"No se pudo cambiar rol de usuario: {user_id}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Error cambiando rol de usuario: {e}")
+        return False
+
     def _ensure_connection(self):
         """Asegurar que la conexión a MongoDB está activa"""
         try:
