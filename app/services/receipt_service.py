@@ -108,27 +108,27 @@ class ReceiptService:
             
             return None
 
-    def get_receipts_by_user(self, user_id: str):
-        """Obtener comprobantes de un usuario específico"""
+    def get_receipts_by_user(self, user_id: str) -> List[dict]:
+        """Obtener comprobantes de un usuario específico (para cnb)"""
         try:
             self._ensure_connection()
             
-            receipts = list(self.receipts.find(
-                {"user_id": ObjectId(user_id)}
-            ).sort("created_at", DESCENDING))
+            # ✅ SOLUCIÓN: Usar ObjectId(user_id) igual que los otros métodos
+            receipts = list(self.receipts.find({
+                "user_id": ObjectId(user_id)  # ✅ CAMBIO CRÍTICO: ObjectId(user_id)
+            }).sort("created_at", DESCENDING))
             
             for receipt in receipts:
                 receipt["_id"] = str(receipt["_id"])
                 if receipt.get("user_id"):
                     receipt["user_id"] = str(receipt["user_id"])
-                    
-            logger.info(f"Comprobantes obtenidos para usuario {user_id}: {len(receipts)}")
+            
+            logger.info(f"Se obtuvieron {len(receipts)} comprobantes del usuario {user_id}")
             return receipts
             
         except Exception as e:
-            logger.error(f"Error al obtener comprobantes del usuario {user_id}: {e}")
+            logger.error(f"Error al obtener comprobantes del usuario: {e}")
             return []
-
     
     def get_all_receipts_with_corresponsal_info(self):
         """Obtener todos los comprobantes con información del corresponsal (admin/asesor)"""
