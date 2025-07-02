@@ -1,13 +1,14 @@
+# app/middlewares/auth_middleware.py - CORREGIDO CON IMPORT
 import jwt
 from datetime import datetime, timedelta
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List
 from app.config import SECRET_KEY, ALGORITHM
-from app.services.user_service import UserService
+from app.services.user_service import UserService  # ← AGREGAR ESTA LÍNEA
 
 security = HTTPBearer()
-user_service = UserService()
+user_service = UserService()  # ← ESTA LÍNEA NECESITA EL IMPORT DE ARRIBA
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
@@ -38,7 +39,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             )
         
         # Validar usuario actual en BD
-        user_info = user_service.get_user_by_id(user_id)
+        user_info = user_service.get_user_info(user_id)  # ← ESTA LÍNEA FUNCIONA AHORA
         if not user_info:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -78,7 +79,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         # Actualizar payload con datos frescos del usuario
         payload["estado"] = user_state
         payload["rol"] = user_info.get("rol", payload.get("rol"))
-        payload["session_id"] = current_session_id  # NUEVO: mantener session_id actualizado
+        payload["session_id"] = current_session_id
 
         return payload
     except HTTPException:
