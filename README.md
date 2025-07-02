@@ -2,21 +2,21 @@
 
 Sistema integral de gestiÃ³n de comprobantes para Corresponsales No Bancarios (CNB) del Banco del Barrio - Banco Guayaquil.
 
-## í ½í³± DescripciÃ³n
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ DescripciÃ³n
 
 RÃ­oCaja Smart es una aplicaciÃ³n mÃ³vil desarrollada en Flutter que permite a los corresponsales bancarios digitalizar, gestionar y generar reportes de sus transacciones diarias mediante el escaneo automÃ¡tico de comprobantes usando tecnologÃ­a OCR.
 
 ### âœ¨ CaracterÃ­sticas Principales
 
-- í ½í´ **Escaneo OCR**: Reconocimiento automÃ¡tico de texto en comprobantes
-- í ½í³Š **GestiÃ³n de Transacciones**: Control completo de retiros, depÃ³sitos, pagos y recargas
-- í ½í³ˆ **Reportes AutomÃ¡ticos**: GeneraciÃ³n de reportes de cierre diarios en PDF
-- í ½í±¥ **Sistema Multi-usuario**: Roles diferenciados (Admin, Operador, Lector)
-- í ½í´ **AutenticaciÃ³n Segura**: Sistema de login con verificaciÃ³n de perfiles
-- í ½í²¬ **Sistema de Mensajes**: ComunicaciÃ³n entre administradores y usuarios
-- í ½í³± **Interfaz Intuitiva**: DiseÃ±o en espaÃ±ol optimizado para uso mÃ³vil
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ **Escaneo OCR**: Reconocimiento automÃ¡tico de texto en comprobantes
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ **GestiÃ³n de Transacciones**: Control completo de retiros, depÃ³sitos, pagos y recargas
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ **Reportes AutomÃ¡ticos**: GeneraciÃ³n de reportes de cierre diarios en PDF
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ **Sistema Multi-usuario**: Roles diferenciaasesorin, Operador, cnb)
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ **AutenticaciÃ³n Segura**: Sistema de login con verificaciÃ³n de perfiles
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ **Sistema de Mensajes**: ComunicaciÃ³n entre administradores y usuarios
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ **Interfaz Intuitiva**: DiseÃ±o en espaÃ±ol optimizado para uso mÃ³vil
 
-## í ½íº€ TecnologÃ­as Utilizadas
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ TecnologÃ­as Utilizadas
 
 ### Frontend (AplicaciÃ³n MÃ³vil)
 - **Flutter 3.7+** - Framework de desarrollo multiplataforma
@@ -38,7 +38,7 @@ RÃ­oCaja Smart es una aplicaciÃ³n mÃ³vil desarrollada en Flutter que permite a l
 - **Uvicorn** - Servidor ASGI
 - **Passlib + Bcrypt** - EncriptaciÃ³n de contraseÃ±as
 
-## í ½í³‹ Requisitos del Sistema
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Requisitos del Sistema
 
 ### Para el Frontend (Flutter)
 - Flutter SDK â‰¥ 3.7.2
@@ -51,7 +51,7 @@ RÃ­oCaja Smart es una aplicaciÃ³n mÃ³vil desarrollada en Flutter que permite a l
 - MongoDB 4.4+
 - Pip (gestor de paquetes)
 
-## í ½í» ï¸ InstalaciÃ³n y ConfiguraciÃ³n
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¸ InstalaciÃ³n y ConfiguraciÃ³n
 
 ### 1. Clonar el Repositorio
 ```bash
@@ -141,23 +141,23 @@ flutter run
 flutter build apk --release
 ```
 
-## í ¼í¾¯ Uso del Sistema
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Uso del Sistema
 
 ### Roles de Usuario
 
-#### í ½í±¨â€í ½í²¼ Administrador
+#### ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â€ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Administrador
 - Aprobar/rechazar nuevos usuarios
 - Asignar cÃ³digos de corresponsal
 - Gestionar roles de usuarios
 - Crear y administrar mensajes del sistema
 - Acceso completo a todos los comprobantes y reportes
 
-#### í ½í´§ Operador
+#### ï¿½ï¿½ï¿½asesorador
 - Crear mensajes del sistema
 - Ver usuarios pendientes
 - Acceso a reportes y comprobantes (limitado)
 
-#### í ½í³– Lector (Corresponsal)
+#### ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ cnb (Corresponsal)
 - Escanear y gestionar comprobantes
 - Generar reportes de cierre diarios
 - Ver mensajes del sistema
@@ -173,7 +173,7 @@ flutter build apk --release
 6. **GestiÃ³n**: Consulta historial y filtra transacciones
 7. **Reportes**: Genera reportes de cierre al final del dÃ­a
 
-## í ½í³Š Endpoints de la API
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Endpoints de la API
 
 ### AutenticaciÃ³n
 - `POST /api/v1/auth/register` - Registro de usuarios
@@ -198,7 +198,7 @@ flutter build apk --release
 - `POST /api/v1/messages/create` - Crear mensaje
 - `POST /api/v1/messages/mark-read` - Marcar como leÃ­do
 
-## í ½í´§ Comandos de GestiÃ³n del Servidor
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Comandos de GestiÃ³n del Servidor
 
 ### Iniciar con Screen
 ```bash
@@ -238,7 +238,7 @@ curl http://34.63.192.239:8080/docs
 netstat -tlnp | grep :8080
 ```
 
-## í ½í°› SoluciÃ³n de Problemas
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SoluciÃ³n de Problemas
 
 ### Problemas Comunes
 
@@ -277,7 +277,7 @@ flutter run --verbose
 flutter logs
 ```
 
-## í ¾í´ ContribuciÃ³n
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ContribuciÃ³n
 
 ### Estructura del Proyecto
 ```
@@ -304,11 +304,11 @@ riocaja-smart/
 3. Hacer commits con mensajes descriptivos
 4. Enviar Pull Request con descripciÃ³n detallada
 
-## í ½í³„ Licencia
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Licencia
 
 Este proyecto estÃ¡ licenciado bajo los tÃ©rminos de la [Licencia MIT](LICENSE).
 
-## í ¼í¶˜ Soporte
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Soporte
 
 Para reportar bugs o solicitar nuevas funcionalidades, por favor crear un issue en el repositorio de GitHub.
 

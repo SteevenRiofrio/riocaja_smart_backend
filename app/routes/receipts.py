@@ -46,11 +46,11 @@ async def create_receipt(receipt: ReceiptModel, current_user=Depends(get_current
             
             # Metadatos
             "created_at": datetime.utcnow(),
-            "rol_usuario": user_info.get("rol", "lector")
+            "rol_usuario": user_info.get("rol", "cnb")
         }
         
-        # Validar que el usuario tenga código de corresponsal (para lectores)
-        if (user_info.get("rol") == "lector" and 
+        # Validar que el usuario tenga código de corresponsal (para cnbes)
+        if (user_info.get("rol") == "cnb" and 
             not user_info.get("codigo_corresponsal")):
             raise HTTPException(
                 status_code=400, 
@@ -77,18 +77,18 @@ async def create_receipt(receipt: ReceiptModel, current_user=Depends(get_current
 async def get_all_receipts(current_user=Depends(get_current_user)):
     """
     Obtener comprobantes según el rol del usuario
-    - Admin/Operador: Ve todos los comprobantes con información del corresponsal
-    - Lector: Ve solo sus propios comprobantes
+    - Admin/asesor: Ve todos los comprobantes con información del corresponsal
+    - cnb: Ve solo sus propios comprobantes
     """
     try:
         user_role = current_user.get("rol")
         user_id = current_user.get("sub")
         
-        if user_role in ["admin", "operador"]:
-            # Admin/Operador ve TODOS los comprobantes con información del corresponsal
+        if user_role in ["admin", "asesor"]:
+            # Admin/asesor ve TODOS los comprobantes con información del corresponsal
             receipts = receipt_service.get_all_receipts_with_corresponsal_info()
         else:
-            # Lectores ven solo sus propios comprobantes
+            # cnbes ven solo sus propios comprobantes
             receipts = receipt_service.get_receipts_by_user(user_id)
         
         return {
@@ -101,14 +101,14 @@ async def get_all_receipts(current_user=Depends(get_current_user)):
         print(f"Error al obtener comprobantes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# NUEVO: Endpoint específico para filtrar por corresponsal (solo admin/operador)
+# NUEVO: Endpoint específico para filtrar por corresponsal (solo admin/asesor)
 @router.get("/corresponsal/{codigo_corresponsal}", response_model=dict)
 async def get_receipts_by_corresponsal(
     codigo_corresponsal: str, 
-    current_user=Depends(role_required(["admin", "operador"]))
+    current_user=Depends(role_required(["admin", "asesor"]))
 ):
     """
-    Obtener comprobantes filtrados por código de corresponsal (solo admin/operador)
+    Obtener comprobantes filtrados por código de corresponsal (solo admin/asesor)
     """
     try:
         receipts = receipt_service.get_receipts_by_corresponsal(codigo_corresponsal)
@@ -123,9 +123,9 @@ async def get_receipts_by_corresponsal(
         print(f"Error al obtener comprobantes por corresponsal: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# NUEVO: Obtener lista de corresponsales disponibles (solo admin/operador)
+# NUEVO: Obtener lista de corresponsales disponibles (solo admin/asesor)
 @router.get("/corresponsales", response_model=dict)
-async def get_available_corresponsales(current_user=Depends(role_required(["admin", "operador"]))):
+async def get_available_corresponsales(current_user=Depends(role_required(["admin", "asesor"]))):
     """
     Obtener lista de corresponsales que tienen comprobantes
     """
@@ -150,11 +150,11 @@ async def get_receipts_by_date(date: str, current_user=Depends(get_current_user)
         user_role = current_user.get("rol")
         user_id = current_user.get("sub")
         
-        if user_role in ["admin", "operador"]:
-            # Admin/Operador ve todos los comprobantes de la fecha
+        if user_role in ["admin", "asesor"]:
+            # Admin/asesor ve todos los comprobantes de la fecha
             receipts = receipt_service.get_receipts_by_date_with_corresponsal(date)
         else:
-            # Lectores ven solo sus comprobantes de la fecha
+            # cnbes ven solo sus comprobantes de la fecha
             receipts = receipt_service.get_receipts_by_date_and_user(date, user_id)
         
         return {
@@ -168,12 +168,12 @@ async def get_receipts_by_date(date: str, current_user=Depends(get_current_user)
         print(f"Error al obtener comprobantes por fecha: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# NUEVO: Reportes filtrados por corresponsal (solo admin/operador)
+# NUEVO: Reportes filtrados por corresponsal (solo admin/asesor)
 @router.get("/report/{date}/corresponsal/{codigo_corresponsal}", response_model=dict)
 async def get_closing_report_by_corresponsal(
     date: str, 
     codigo_corresponsal: str,
-    current_user=Depends(role_required(["admin", "operador"]))
+    current_user=Depends(role_required(["admin", "asesor"]))
 ):
     """
     Generar reporte de cierre filtrado por corresponsal específico
@@ -200,11 +200,11 @@ async def get_closing_report(date: str, current_user=Depends(get_current_user)):
         user_role = current_user.get("rol")
         user_id = current_user.get("sub")
         
-        if user_role in ["admin", "operador"]:
-            # Admin/Operador ve reporte completo
+        if user_role in ["admin", "asesor"]:
+            # Admin/asesor ve reporte completo
             report_data = receipt_service.generate_closing_report(date)
         else:
-            # Lectores ven solo reporte de sus comprobantes
+            # cnbes ven solo reporte de sus comprobantes
             report_data = receipt_service.generate_closing_report_by_user(date, user_id)
         
         return {
@@ -227,11 +227,11 @@ async def delete_receipt(transaction_number: str, current_user=Depends(get_curre
         user_id = current_user.get("sub")
         
         # Verificar si el usuario puede eliminar este comprobante
-        if user_role in ["admin", "operador"]:
-            # Admin/Operador puede eliminar cualquier comprobante
+        if user_role in ["admin", "asesor"]:
+            # Admin/asesor puede eliminar cualquier comprobante
             success = receipt_service.delete_receipt(transaction_number)
         else:
-            # Lectores solo pueden eliminar sus propios comprobantes
+            # cnbes solo pueden eliminar sus propios comprobantes
             success = receipt_service.delete_receipt_by_user(transaction_number, user_id)
         
         if success:

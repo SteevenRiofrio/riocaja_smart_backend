@@ -90,12 +90,12 @@ def admin_required(current_user: dict = Depends(get_current_user)):
         )
     return current_user
 
-def admin_or_operador_required(current_user: dict = Depends(get_current_user)):
-    """Verificar que el usuario sea admin u operador"""
+def admin_or_asesor_required(current_user: dict = Depends(get_current_user)):
+    """Verificar que el usuario sea admin u asesor"""
     user_role = current_user.get("rol")
-    if user_role not in ["admin", "operador"]:
+    if user_role not in ["admin", "asesor"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Se requieren permisos de administrador u operador"
+            detail="Se requieren permisos de administrador u asesor"
         )
     return current_user

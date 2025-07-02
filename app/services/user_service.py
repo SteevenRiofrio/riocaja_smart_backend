@@ -51,7 +51,7 @@ class UserService:
             logger.error("Conexión a MongoDB no está inicializada")
             raise Exception("Error de conexión a la base de datos")
 
-    def register_user(self, nombre: str, email: str, password: str, rol: str = "lector"):
+    def register_user(self, nombre: str, email: str, password: str, rol: str = "cnb"):
         try:
             self._ensure_connection()
             
