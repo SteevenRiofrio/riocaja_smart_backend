@@ -176,11 +176,17 @@ def me(user=Depends(get_current_user)):
     
     try:
         user_id = user.get("sub")
-        user_data = user_service.get_user_by_id(user_id)
+ 
+        user_data = user_service.get_user_info(user_id)  # ← Esto lee de la BD
         if user_data:
+            # Remover información sensible
             user_data.pop("password_hash", None)
+            user_data.pop("session_id", None)  # Opcional: remover session_id también
+            
             return user_data
+            
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
     except HTTPException:
         raise
     except Exception as e:
