@@ -15,7 +15,7 @@ user_service = UserService()
 
 @router.post("/", response_model=dict)
 async def create_receipt(receipt: ReceiptModel, current_user=Depends(get_current_user)):
-    """Crear nuevo comprobante - CORREGIDO con debug"""
+    """Crear nuevo comprobante - CORREGIDO con user_id como string"""
     try:
         user_id = current_user.get("sub")
         user_info = user_service.get_user_info(user_id)
@@ -23,29 +23,20 @@ async def create_receipt(receipt: ReceiptModel, current_user=Depends(get_current
         if not user_info:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        # ✅ CORRECCIÓN CRÍTICA: Usar .dict(by_alias=True) para convertir correctamente
+        # ✅ CORRECCIÓN: Usar .dict(by_alias=True) para convertir correctamente
         receipt_dict = receipt.dict(by_alias=True)
         
-        # 🔍 DEBUG: Mostrar qué datos llegan
-        print(f"🔍 Datos del receipt recibidos: {receipt_dict.keys()}")
-        print(f"🔍 nro_transaccion en datos: {receipt_dict.get('nro_transaccion', 'NO ENCONTRADO')}")
-        print(f"🔍 nroTransaccion en datos: {receipt_dict.get('nroTransaccion', 'NO ENCONTRADO')}")
-        
         receipt_data = {
-            **receipt_dict,  # ✅ USAR EL DICT CONVERTIDO
-            "user_id": ObjectId(user_id),
+            **receipt_dict,
+            # ✅ CORRECCIÓN CRÍTICA: user_id como STRING, no ObjectId
+            "user_id": user_id,  # ← CAMBIO: Sin ObjectId()
             "created_at": datetime.utcnow(),
             "codigo_corresponsal": user_info.get("codigo_corresponsal", "SIN_CODIGO"),
             "nombre_corresponsal": user_info.get("nombre", "Sin nombre"),
             "nombre_local": user_info.get("nombre_local", "Sin local"),
-            "rol_usuario": user_info.get("rol", "cnb")  
+            "email_usuario": user_info.get("email", ""),  # ✅ AGREGAR email_usuario
+            "rol_usuario": user_info.get("rol", "cnb")
         }
-        
-        # 🔍 DEBUG: Mostrar datos finales que van al servicio
-        print(f"🔍 Datos finales para crear comprobante:")
-        print(f"   nro_transaccion: {receipt_data.get('nro_transaccion', 'NO ENCONTRADO')}")
-        print(f"   user_id: {receipt_data.get('user_id')}")
-        print(f"   codigo_corresponsal: {receipt_data.get('codigo_corresponsal')}")
         
         # Validar que el usuario tenga código de corresponsal (para CNB)
         if (user_info.get("rol") == "cnb" and 

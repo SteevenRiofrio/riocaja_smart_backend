@@ -90,20 +90,14 @@ class ReceiptService:
         try:
             self._ensure_connection()
             
-            # ✅ MANTENER: Conversión correcta a ObjectId
-            if isinstance(user_id, str):
-                user_object_id = ObjectId(user_id)
-            else:
-                user_object_id = user_id
-                
+            # ✅ CORRECCIÓN: user_id como STRING, no ObjectId
             receipts = list(self.receipts.find({
-                "user_id": user_object_id
+                "user_id": user_id  # ← CAMBIO: Sin ObjectId()
             }).sort("created_at", DESCENDING))
             
             for receipt in receipts:
                 receipt["_id"] = str(receipt["_id"])
-                if receipt.get("user_id"):
-                    receipt["user_id"] = str(receipt["user_id"])
+                # user_id ya es string, no necesita conversión
             
             logger.info(f"Se obtuvieron {len(receipts)} comprobantes del usuario {user_id}")
             return receipts
@@ -155,15 +149,10 @@ class ReceiptService:
         try:
             self._ensure_connection()
             
-            if isinstance(user_id, str):
-                user_object_id = ObjectId(user_id)
-            else:
-                user_object_id = user_id
-            
-            # Buscar y eliminar solo si pertenece al usuario
+            # ✅ CORRECCIÓN: user_id como STRING, no ObjectId
             result = self.receipts.delete_one({
                 "nro_transaccion": transaction_number,
-                "user_id": user_object_id
+                "user_id": user_id  # ← CAMBIO: Sin ObjectId()
             })
             
             success = result.deleted_count > 0
@@ -187,15 +176,14 @@ class ReceiptService:
             
             query = {
                 "fecha": {"$in": date_variations},
-                "user_id": ObjectId(user_id)
+                "user_id": user_id  # ← CAMBIO: Sin ObjectId()
             }
             
             receipts = list(self.receipts.find(query).sort("created_at", DESCENDING))
             
             for receipt in receipts:
                 receipt["_id"] = str(receipt["_id"])
-                if receipt.get("user_id"):
-                    receipt["user_id"] = str(receipt["user_id"])
+                # user_id ya es string, no necesita conversión
             
             logger.info(f"Se obtuvieron {len(receipts)} comprobantes del usuario {user_id} para la fecha {date}")
             return receipts
@@ -234,7 +222,7 @@ class ReceiptService:
             
             receipts = list(self.receipts.find({
                 "fecha": {"$in": date_variations},
-                "user_id": ObjectId(user_id)
+                "user_id": user_id  # ← CAMBIO: Sin ObjectId()
             }))
             
             return self._process_receipts_for_report(receipts, f"Usuario {user_id}")
@@ -385,4 +373,45 @@ class ReceiptService:
             
         except Exception as e:
             logger.error(f"Error al obtener corresponsales: {e}")
+            return []
+
+    def count_receipts_by_user(self, user_id: str):
+        """Contar comprobantes de un usuario"""
+        try:
+            self._ensure_connection()
+            
+            count = self.receipts.count_documents({"user_id": user_id})  # ← CAMBIO: Sin ObjectId()
+            logger.info(f"Usuario {user_id} tiene {count} comprobantes")
+            return count
+            
+        except Exception as e:
+            logger.error(f"Error al contar comprobantes del usuario {user_id}: {e}")
+            return 0
+
+    def get_receipts_by_date_range(self, start_date: str, end_date: str, user_id: str = None):
+        """Obtener comprobantes por rango de fechas"""
+        try:
+            self._ensure_connection()
+            
+            query = {
+                "fecha": {
+                    "$gte": start_date,
+                    "$lte": end_date
+                }
+            }
+            
+            if user_id:
+                query["user_id"] = user_id  # ← CAMBIO: Sin ObjectId()
+            
+            receipts = list(self.receipts.find(query).sort("created_at", DESCENDING))
+            
+            for receipt in receipts:
+                receipt["_id"] = str(receipt["_id"])
+                # user_id ya es string, no necesita conversión
+            
+            logger.info(f"Comprobantes obtenidos para rango {start_date}-{end_date}: {len(receipts)}")
+            return receipts
+            
+        except Exception as e:
+            logger.error(f"Error al obtener comprobantes por rango de fechas: {e}")
             return []
