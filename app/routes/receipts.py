@@ -2,10 +2,19 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
+from pydantic import BaseModel
 from app.services.receipt_service import ReceiptService
 from app.services.user_service import UserService
 from app.middlewares.auth_middleware import get_current_user, role_required
 from app.models.receipt import ReceiptModel
+
+# Modelo para editar comprobante
+class EditReceiptModel(BaseModel):
+    fecha: str
+    hora: str
+    tipo: str
+    nro_transaccion: str
+    valor_total: float
 
 router = APIRouter()
 
@@ -231,3 +240,62 @@ async def delete_receipt(transaction_number: str, current_user=Depends(get_curre
     except Exception as e:
         print(f"Error al eliminar comprobante: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/{transaction_number}", response_model=dict)
+async def edit_receipt(
+    transaction_number: str, 
+    edit_data: EditReceiptModel,
+    current_user=Depends(get_current_user)
+):
+    """
+    Editar comprobante - Con permisos específicos
+    - Admin: Puede editar cualquier comprobante
+    - CNB: Solo puede editar sus propios comprobantes
+    - Asesor: NO puede editar (solo eliminar)
+    """
+    try:
+        user_role = current_user.get("rol")
+        user_id = current_user.get("sub")
+        
+        print(f"🔧 Editando comprobante {transaction_number} - Usuario: {user_id}, Rol: {user_role}")
+        
+        # ✅ VERIFICAR PERMISOS DE EDICIÓN
+        if user_role == "asesor":
+            raise HTTPException(
+                status_code=403, 
+                detail="Los asesores no tienen permisos para editar comprobantes"
+            )
+        
+        # Preparar datos para actualización
+        update_data = {
+            "fecha": edit_data.fecha,
+            "hora": edit_data.hora,
+            "tipo": edit_data.tipo,
+            "nro_transaccion": edit_data.nro_transaccion,
+            "valor_total": edit_data.valor_total,
+            "updated_at": datetime.utcnow()
+        }
+        
+        # ✅ VERIFICAR PERMISOS SEGÚN ROL
+        if user_role == "admin":
+            # Admin puede editar cualquier comprobante
+            success = receipt_service.update_receipt_by_transaction(transaction_number, update_data)
+            print(f"🔧 Admin editando: {success}")
+        elif user_role == "cnb":
+            # CNB solo puede editar sus propios comprobantes
+            success = receipt_service.update_receipt_by_user(transaction_number, user_id, update_data)
+            print(f"🔧 CNB editando propio: {success}")
+        else:
+            raise HTTPException(status_code=403, detail="Sin permisos para editar")
+        
+        if success:
+            return {"message": "Comprobante editado exitosamente"}
+        else:
+            raise HTTPException(status_code=404, detail="Comprobante no encontrado o sin permisos")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error al editar comprobante: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -375,43 +375,117 @@ class ReceiptService:
             logger.error(f"Error al obtener corresponsales: {e}")
             return []
 
-    def count_receipts_by_user(self, user_id: str):
-        """Contar comprobantes de un usuario"""
+    def update_receipt_by_transaction(self, transaction_number: str, update_data: dict) -> bool:
+        """Actualizar comprobante por número de transacción (admin)"""
         try:
             self._ensure_connection()
             
-            count = self.receipts.count_documents({"user_id": user_id})  # ← CAMBIO: Sin ObjectId()
-            logger.info(f"Usuario {user_id} tiene {count} comprobantes")
-            return count
+            result = self.receipts.update_one(
+                {"nro_transaccion": transaction_number},
+                {"$set": update_data}
+            )
+            
+            success = result.modified_count > 0
+            
+            if success:
+                logger.info(f"Comprobante actualizado por admin: {transaction_number}")
+            else:
+                logger.warning(f"No se pudo actualizar comprobante: {transaction_number}")
+            
+            return success
             
         except Exception as e:
-            logger.error(f"Error al contar comprobantes del usuario {user_id}: {e}")
-            return 0
+            logger.error(f"Error al actualizar comprobante por transacción: {e}")
+            return False
 
-    def get_receipts_by_date_range(self, start_date: str, end_date: str, user_id: str = None):
-        """Obtener comprobantes por rango de fechas"""
+    def update_receipt_by_user(self, transaction_number: str, user_id: str, update_data: dict) -> bool:
+        """Actualizar comprobante solo si pertenece al usuario (cnb)"""
         try:
             self._ensure_connection()
             
-            query = {
-                "fecha": {
-                    "$gte": start_date,
-                    "$lte": end_date
-                }
-            }
+            # Buscar y actualizar solo si pertenece al usuario
+            result = self.receipts.update_one(
+                {
+                    "nro_transaccion": transaction_number,
+                    "user_id": user_id
+                },
+                {"$set": update_data}
+            )
             
-            if user_id:
-                query["user_id"] = user_id  # ← CAMBIO: Sin ObjectId()
+            success = result.modified_count > 0
             
-            receipts = list(self.receipts.find(query).sort("created_at", DESCENDING))
+            if success:
+                logger.info(f"Comprobante actualizado por usuario {user_id}: {transaction_number}")
+            else:
+                logger.warning(f"Comprobante no encontrado o sin permisos para actualizar: {transaction_number}")
             
-            for receipt in receipts:
-                receipt["_id"] = str(receipt["_id"])
-                # user_id ya es string, no necesita conversión
-            
-            logger.info(f"Comprobantes obtenidos para rango {start_date}-{end_date}: {len(receipts)}")
-            return receipts
+            return success
             
         except Exception as e:
-            logger.error(f"Error al obtener comprobantes por rango de fechas: {e}")
+            logger.error(f"Error al actualizar comprobante por usuario: {e}")
+            return False
+
+    def get_receipt_by_transaction(self, transaction_number: str) -> dict:
+        """Obtener comprobante por número de transacción"""
+        try:
+            self._ensure_connection()
+            
+            receipt = self.receipts.find_one({"nro_transaccion": transaction_number})
+            
+            if receipt:
+                receipt["_id"] = str(receipt["_id"])
+                # Convertir user_id si existe
+                if receipt.get("user_id"):
+                    receipt["user_id"] = str(receipt["user_id"])
+                logger.info(f"Comprobante encontrado: {transaction_number}")
+                return receipt
+            else:
+                logger.warning(f"Comprobante no encontrado: {transaction_number}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error al obtener comprobante por transacción: {e}")
+            return None
+
+    def get_receipts_stats_by_corresponsal(self) -> List[dict]:
+        """Obtener estadísticas de comprobantes por corresponsal (admin)"""
+        try:
+            self._ensure_connection()
+            
+            pipeline = [
+                {
+                    "$match": {
+                        "codigo_corresponsal": {"$exists": True, "$ne": None}
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": "$codigo_corresponsal",
+                        "total_comprobantes": {"$sum": 1},
+                        "total_ingresos": {"$sum": {"$cond": [{"$eq": ["$tipo", "INGRESO"]}, "$valor_total", 0]}},
+                        "total_egresos": {"$sum": {"$cond": [{"$eq": ["$tipo", "EGRESO"]}, "$valor_total", 0]}},
+                    }
+                },
+                {
+                    "$sort": {"_id": 1}
+                }
+            ]
+            
+            result = list(self.receipts.aggregate(pipeline))
+            
+            # Formatear resultado
+            stats = []
+            for item in result:
+                stats.append({
+                    "codigo_corresponsal": item["_id"],
+                    "total_comprobantes": item["total_comprobantes"],
+                    "total_ingresos": item["total_ingresos"],
+                    "total_egresos": item["total_egresos"],
+                })
+            
+            logger.info(f"Se obtuvieron estadísticas para {len(stats)} corresponsales")
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Error al obtener estadísticas por corresponsal: {e}")
             return []
