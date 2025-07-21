@@ -36,7 +36,63 @@ class MessageService:
             
             result = self.messages.insert_one(message_data)
             logger.info(f"Mensaje creado: {titulo}")
-            
+
+            # ✅ ENVIAR EMAILS DE NOTIFICACIÓN
+            try:
+                from app.services.email_service import EmailService
+                from app.services.user_service import UserService
+
+                email_service = EmailService()
+                user_service = UserService()
+
+                # Obtener información del autor del mensaje
+                autor_info = user_service.get_user_info(creado_por)
+                autor_nombre = autor_info.get('nombre', 'Administrador') if autor_info else 'Administrador'
+
+                # Determinar destinatarios para el email
+                if destinatarios and len(destinatarios) > 0:
+                    # Si hay destinatarios específicos, usar esos IDs
+                    target_users = []
+                    for user_id in destinatarios:
+                        user_info = user_service.get_user_info(user_id)
+                        if user_info:
+                            target_users.append(user_info)
+                else:
+                    # Si no hay destinatarios específicos, enviar a todos los CNB
+                    all_users = user_service.get_all_users()
+                    target_users = [user for user in all_users if user.get('rol') == 'cnb']
+
+                # Enviar email a cada usuario objetivo
+                sent_count = 0
+                for user in target_users:
+                    user_email = user.get('email')
+                    user_name = user.get('nombre')
+
+                    if user_email and user_name:
+                        try:
+                            success = email_service.send_new_message_notification(
+                                user_email=user_email,
+                                user_name=user_name,
+                                message_data={
+                                    'titulo': titulo,
+                                    'contenido': contenido,
+                                    'tipo': tipo,
+                                    'autor_nombre': autor_nombre,
+                                    'fecha_envio': datetime.now().strftime('%d/%m/%Y %H:%M')
+                                }
+                            )
+                            if success:
+                                sent_count += 1
+
+                        except Exception as individual_email_error:
+                            logger.warning(f"Error enviando email a {user_email}: {individual_email_error}")
+
+                logger.info(f"✅ Notificaciones de mensaje enviadas: {sent_count} emails")
+
+            except Exception as email_error:
+                logger.warning(f"⚠️ Error enviando notificaciones de mensaje: {email_error}")
+                # No fallar la creación del mensaje por errores de email
+
             return {
                 "id": str(result.inserted_id),
                 "message": "Mensaje creado exitosamente"

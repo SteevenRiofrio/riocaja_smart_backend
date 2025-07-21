@@ -345,3 +345,38 @@ class EmailService:
         
         html_body = self._get_base_template(content, "Nuevo Usuario")
         return self._send_email(admin_email, subject, html_body)
+    
+    def send_new_message_notification(self, user_email: str, user_name: str, message_data: Dict[str, Any]) -> bool:
+        """Notificación de nuevo mensaje para CNB"""
+        subject = f"📢 Nuevo Mensaje - {self.company_name}"
+        
+        message_type_icons = {
+            'informativo': '📋',
+            'importante': '⚠️',
+            'urgente': '🚨',
+            'aviso': '📣'
+        }
+        
+        tipo = message_data.get('tipo', 'informativo')
+        icon = message_type_icons.get(tipo, '📋')
+        
+        content = f"""
+        <h2 style="color: #1976d2; margin-bottom: 20px;">{icon} Nuevo Mensaje</h2>
+        
+        <p>Hola <strong>{user_name}</strong>,</p>
+        <p>Tienes un nuevo mensaje en <strong>{self.company_name}</strong>:</p>
+        
+        <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1976d2;">
+            <h3 style="margin: 0 0 10px 0; color: #1976d2;">{message_data.get('titulo', 'Sin título')}</h3>
+            <p style="margin: 10px 0; color: #333; line-height: 1.6;">{message_data.get('contenido', '')}</p>
+            
+            <hr style="border: 0; height: 1px; background: #1976d2; margin: 15px 0;">
+            
+            <p style="margin: 0; color: #666; font-size: 12px;">
+                Este es un mensaje automático, por favor no respondas.
+            </p>
+        </div>
+        """
+        
+        html_body = self._get_base_template(content, "Nuevo Mensaje")
+        return self._send_email(user_email, subject, html_body)
