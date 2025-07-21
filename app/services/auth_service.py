@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt, ExpiredSignatureError
 from app.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+import bcrypt
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Crear token de acceso JWT"""
@@ -59,3 +60,36 @@ def decode_token(token: str):
         return None
     except JWTError:
         return None
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Verifica si una contraseña en texto plano coincide con el hash
+
+    Args:
+        plain_password: Contraseña en texto plano
+        hashed_password: Hash de la contraseña almacenada
+
+    Returns:
+        bool: True si coinciden, False en caso contrario
+    """
+    try:
+        if not hashed_password:
+            return False
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception as e:
+        print(f"Error verificando contraseña: {e}")
+        return False
+
+def hash_password(password: str) -> str:
+    """
+    Genera un hash seguro de la contraseña
+
+    Args:
+        password: Contraseña en texto plano
+
+    Returns:
+        str: Hash de la contraseña
+    """
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')

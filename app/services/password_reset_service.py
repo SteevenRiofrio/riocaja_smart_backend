@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-# app/services/password_reset_service.py
 import smtplib
 import ssl
 import random
@@ -255,6 +253,16 @@ Equipo RioCaja Smart
                 return {
                     "success": False,
                     "message": "Usuario no encontrado."
+                }
+
+            # ✨ NUEVA VALIDACIÓN: Verificar que la nueva contraseña sea diferente a la actual
+            from app.services.auth_service import verify_password
+            
+            if verify_password(new_password, user.get("password_hash", "")):
+                logger.warning(f"Intento de usar la misma contraseña para: {email}")
+                return {
+                    "success": False,
+                    "message": "La nueva contraseña debe ser diferente a la contraseña actual."
                 }
 
             hashed_password = hash_password(new_password)
