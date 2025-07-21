@@ -165,6 +165,38 @@ class UserService:
             
             result = self.users.insert_one(user_data)
             logger.info(f"Usuario registrado: {email}")
+
+            # --- Envío de emails de confirmación y notificación a admins ---
+            try:
+                from app.services.email_service import EmailService
+                email_service = EmailService()
+                
+                # Enviar email de confirmación al usuario
+                email_service.send_registration_confirmation(
+                    user_email=email.lower(),
+                    user_name=nombre
+                )
+                logger.info(f"✅ Email de confirmación enviado a: {email}")
+                
+                # Enviar notificación a administradores
+                admin_users = self.users.find({"rol": "admin"})
+                for admin in admin_users:
+                    admin_email = admin.get('email')
+                    if admin_email:
+                        email_service.send_admin_new_user_notification(
+                            admin_email=admin_email,
+                            user_data={
+                                'nombre': nombre,
+                                'email': email,
+                                'rol': rol
+                            }
+                        )
+                        logger.info(f"✅ Notificación enviada al admin: {admin_email}")
+                        
+            except Exception as email_error:
+                logger.warning(f"⚠️ Error enviando emails de registro: {email_error}")
+                # No fallar el registro por error de email
+
             return {"message": "Usuario registrado exitosamente", "user_id": str(result.inserted_id)}
             
         except ValueError:
@@ -266,19 +298,23 @@ class UserService:
             )
             
             if result.modified_count > 0:
+                # --- Envío de email de aprobación ---
                 try:
                     from app.services.email_service import EmailService
                     email_service = EmailService()
                     
-                    email_service.send_account_approved_notification(
-                        user_email=user_data['email'],
-                        user_name=user_data['nombre'],
-                        codigo_corresponsal=codigo_corresponsal
-                    )
-                    logger.info(f"Email de aprobación enviado a: {user_data['email']}")
-                    
+                    # Obtener datos del usuario actualizado
+                    updated_user = self.users.find_one({"_id": ObjectId(user_id)})
+                    if updated_user:
+                        email_service.send_account_approved_notification(
+                            user_email=updated_user['email'],
+                            user_name=updated_user['nombre'],
+                            codigo_corresponsal=codigo_corresponsal
+                        )
+                        logger.info(f"✅ Email de aprobación enviado a: {updated_user['email']}")
+                        
                 except Exception as email_error:
-                    logger.error(f"Error enviando email de aprobación: {email_error}")
+                    logger.warning(f"⚠️ Error enviando email de aprobación: {email_error}")
                 
                 return True
             return False
@@ -622,6 +658,7 @@ class UserService:
             )
             
             if result.modified_count > 0:
+                # --- Envío de email de rechazo ---
                 try:
                     from app.services.email_service import EmailService
                     email_service = EmailService()
@@ -631,10 +668,10 @@ class UserService:
                         user_name=user_data['nombre'],
                         reason=reason
                     )
-                    logger.info(f"Email de rechazo enviado a: {user_data['email']}")
+                    logger.info(f"✅ Email de rechazo enviado a: {user_data['email']}")
                     
                 except Exception as email_error:
-                    logger.error(f"Error enviando email de rechazo: {email_error}")
+                    logger.warning(f"⚠️ Error enviando email de rechazo: {email_error}")
                 
                 return True
             return False
