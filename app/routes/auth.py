@@ -201,7 +201,7 @@ def login(user: UserLogin):
             "token_type": "bearer",
             "perfil_completo": perfil_completo,
             "codigo_corresponsal": user_db.get("codigo_corresponsal"),
-            "rol": user_role
+            "rol": user_role,
             "nombre": user_db.get("nombre") 
         }
     except HTTPException:
