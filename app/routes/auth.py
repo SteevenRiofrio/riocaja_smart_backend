@@ -202,6 +202,7 @@ def login(user: UserLogin):
             "perfil_completo": perfil_completo,
             "codigo_corresponsal": user_db.get("codigo_corresponsal"),
             "rol": user_role
+            "nombre": user_db.get("nombre") 
         }
     except HTTPException:
         raise
