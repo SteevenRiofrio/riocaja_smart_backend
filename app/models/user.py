@@ -1,7 +1,8 @@
+# app/models/user.py - VERSIÓN CORREGIDA E INTEGRADA
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 
 from app.database import Base
@@ -33,6 +34,10 @@ class User(Base):
     rol = Column(SQLEnum(RolEnum), nullable=False, default=RolEnum.cnb)
     estado = Column(SQLEnum(EstadoEnum), nullable=False, default=EstadoEnum.pendiente)
     
+    # 🆕 NUEVOS CAMPOS PARA TÉRMINOS Y CONDICIONES
+    acepto_terminos = Column(Boolean, nullable=False, default=False)
+    fecha_acepta_terminos = Column(DateTime(timezone=True), nullable=True)
+    
     # Fechas importantes
     fecha_registro = Column(DateTime(timezone=True), nullable=False, 
                            server_default=func.now())
@@ -55,7 +60,7 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), nullable=False, 
                        server_default=func.now(), onupdate=func.now())
     
-    # 🔐 NUEVAS RELACIONES PARA PRIVACIDAD
+    # 🔐 RELACIONES PARA PRIVACIDAD (existentes)
     privacy_consents = relationship(
         "PrivacyConsent", 
         back_populates="user",
@@ -80,7 +85,32 @@ class User(Base):
     def __repr__(self):
         return f"<User(id='{self.id}', email='{self.email}', rol='{self.rol}')>"
     
-    # Métodos útiles para privacidad
+    # ✅ NUEVOS MÉTODOS PARA TÉRMINOS Y CONDICIONES
+    def has_accepted_terms(self):
+        """Verificar si el usuario ha aceptado términos y condiciones"""
+        return self.acepto_terminos == True
+    
+    def accept_terms(self):
+        """Marcar términos como aceptados"""
+        self.acepto_terminos = True
+        self.fecha_acepta_terminos = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
+    
+    def reject_terms(self):
+        """Marcar términos como rechazados"""
+        self.acepto_terminos = False
+        self.fecha_acepta_terminos = None
+        self.updated_at = datetime.utcnow()
+    
+    def needs_terms_acceptance(self):
+        """Verificar si necesita aceptar términos"""
+        return not self.acepto_terminos
+    
+    def get_terms_acceptance_date(self):
+        """Obtener fecha de aceptación de términos"""
+        return self.fecha_acepta_terminos
+    
+    # Métodos existentes para privacidad
     def get_active_consent(self):
         """Obtener consentimiento activo más reciente"""
         return next(
@@ -96,7 +126,6 @@ class User(Base):
             return False
         
         # Verificar vigencia (1 año)
-        from datetime import datetime, timedelta
         expiry_date = active_consent.created_at + timedelta(days=365)
         return datetime.utcnow() < expiry_date
     
@@ -104,3 +133,18 @@ class User(Base):
         """Obtener solicitudes de derechos pendientes"""
         return [req for req in self.data_right_requests 
                 if req.status == "PENDING"]
+    
+    # ✅ MÉTODO COMBINADO: Verificar cumplimiento total
+    def is_compliant_user(self):
+        """
+        Verificar si el usuario cumple con todos los requisitos:
+        - Ha aceptado términos y condiciones
+        - Tiene consentimiento de privacidad válido
+        - Está activo y aprobado
+        """
+        return (
+            self.has_accepted_terms() and
+            self.has_valid_privacy_consent() and
+            self.activo and
+            self.estado == EstadoEnum.activo
+        )

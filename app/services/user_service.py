@@ -812,3 +812,133 @@ class UserService:
                 logger.info("Conexión a MongoDB cerrada")
         except Exception as e:
             logger.error(f"Error al cerrar conexión MongoDB: {e}")
+    
+    def update_terms_acceptance(self, user_id: str, acepta: bool) -> bool:
+        """
+        Actualizar aceptación de términos y condiciones para un usuario
+        
+        Args:
+            user_id: ID del usuario
+            acepta: True si acepta, False si no acepta
+        
+        Returns:
+            bool: True si se actualizó correctamente
+        """
+        try:
+            self._ensure_connection()
+            
+            update_data = {
+                "acepto_terminos": acepta,
+                "updated_at": datetime.utcnow()
+            }
+            
+            # Si acepta, guardar la fecha
+            if acepta:
+                update_data["fecha_acepta_terminos"] = datetime.utcnow()
+            
+            result = self.users.update_one(
+                {"_id": user_id},
+                {"$set": update_data}
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Términos {'aceptados' if acepta else 'rechazados'} para usuario {user_id}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error actualizando términos para usuario {user_id}: {e}")
+            return False
+
+    def check_terms_acceptance(self, user_id: str) -> dict:
+        """
+        Verificar si un usuario ha aceptado los términos y condiciones
+        
+        Args:
+            user_id: ID del usuario
+        
+        Returns:
+            dict: Estado de aceptación de términos
+        """
+        try:
+            self._ensure_connection()
+            
+            user = self.users.find_one(
+                {"_id": user_id},
+                {"acepto_terminos": 1, "fecha_acepta_terminos": 1}
+            )
+            
+            if not user:
+                return {"error": "Usuario no encontrado"}
+            
+            return {
+                "acepto_terminos": user.get("acepto_terminos", False),
+                "fecha_acepta_terminos": user.get("fecha_acepta_terminos"),
+                "necesita_aceptar": not user.get("acepto_terminos", False)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error verificando términos para usuario {user_id}: {e}")
+            return {"error": "Error interno"}
+
+    def get_users_without_terms_acceptance(self) -> List[dict]:
+        """
+        Obtener usuarios que no han aceptado términos y condiciones
+        
+        Returns:
+            List[dict]: Lista de usuarios sin aceptación de términos
+        """
+        try:
+            self._ensure_connection()
+            
+            users = list(self.users.find({
+                "$or": [
+                    {"acepto_terminos": {"$exists": False}},
+                    {"acepto_terminos": False}
+                ]
+            }, {
+                "password_hash": 0,  # Excluir campo sensible
+                "session_id": 0
+            }))
+            
+            # Limpiar ObjectIds
+            processed_users = []
+            for user in users:
+                cleaned_user = clean_objectid_fields(user)
+                processed_users.append(cleaned_user)
+            
+            logger.info(f"Encontrados {len(processed_users)} usuarios sin aceptar términos")
+            return processed_users
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo usuarios sin términos: {e}")
+            return []
+
+    def migrate_existing_users_terms(self) -> bool:
+        """
+        Migración: Agregar campo acepto_terminos=False a usuarios existentes que no lo tienen
+        
+        Returns:
+            bool: True si la migración fue exitosa
+        """
+        try:
+            self._ensure_connection()
+            
+            # Actualizar usuarios que no tienen el campo acepto_terminos
+            result = self.users.update_many(
+                {"acepto_terminos": {"$exists": False}},
+                {
+                    "$set": {
+                        "acepto_terminos": False,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+            
+            logger.info(f"Migración completada: {result.modified_count} usuarios actualizados")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error en migración de términos: {e}")
+            return False
