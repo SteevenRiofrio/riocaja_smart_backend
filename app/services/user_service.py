@@ -161,10 +161,10 @@ class UserService:
                 "estado": "pendiente",
                 "fecha_registro": datetime.utcnow(),
                 "perfil_completo": False,
-                "acepto_terminos": False,
-                "fecha_acepta_terminos": None
+                "acepto_terminos": True,
+                "fecha_acepta_terminos": datetime.utcnow()
             }
-            
+        
             result = self.users.insert_one(user_data)
             logger.info(f"Usuario registrado: {email}")
 
