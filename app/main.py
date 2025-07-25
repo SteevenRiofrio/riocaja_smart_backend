@@ -140,64 +140,6 @@ async def check_terms_status(user_id: str):
         logger.error(f"Error interno en check_terms_status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
-@app.post(f"{API_PREFIX}/users/terms/migrate", tags=["Terms", "Admin"])
-async def migrate_terms_field():
-    """
-    Endpoint para migrar usuarios existentes (agregar campo acepto_terminos=False)
-    
-    ⚠️ **IMPORTANTE**: Solo usar una vez para usuarios existentes que no tienen el campo
-    
-    Este endpoint es para migración de base de datos. Ejecutar una sola vez.
-    """
-    user_service = UserService()
-    
-    try:
-        logger.info("Iniciando migración de términos para usuarios existentes")
-        
-        success = user_service.migrate_existing_users_terms()
-        
-        if success:
-            logger.info("Migración de términos completada exitosamente")
-            return {
-                "success": True,
-                "message": "Migración de términos completada exitosamente",
-                "warning": "Este endpoint debe ejecutarse solo una vez"
-            }
-        else:
-            logger.error("Error en la migración de términos")
-            raise HTTPException(status_code=500, detail="Error en la migración")
-    
-    except Exception as e:
-        logger.error(f"Error en migración: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error en migración: {str(e)}")
-
-@app.get(f"{API_PREFIX}/users/without-terms", tags=["Terms", "Admin"])
-async def get_users_without_terms():
-    """
-    Obtener lista de usuarios que no han aceptado términos y condiciones
-    
-    Útil para administradores para ver qué usuarios necesitan aceptar términos
-    """
-    user_service = UserService()
-    
-    try:
-        logger.info("Obteniendo usuarios sin aceptar términos")
-        
-        users = user_service.get_users_without_terms_acceptance()
-        
-        logger.info(f"Encontrados {len(users)} usuarios sin aceptar términos")
-        
-        return {
-            "users": users,
-            "total": len(users),
-            "message": f"Se encontraron {len(users)} usuarios sin aceptar términos",
-            "timestamp": "2025-01-25T10:00:00Z"
-        }
-    
-    except Exception as e:
-        logger.error(f"Error obteniendo usuarios sin términos: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
-
 # ===== 🆕 ENDPOINT ADICIONAL PARA VERIFICAR CUMPLIMIENTO TOTAL =====
 @app.get(f"{API_PREFIX}/users/{{user_id}}/compliance", tags=["Terms"])
 async def check_user_compliance(user_id: str):
