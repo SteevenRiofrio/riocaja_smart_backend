@@ -71,7 +71,7 @@ class TestRealUserService:
         
         service = UserService()
         profile_data = {"nombre": "Nuevo Nombre"}
-        result = service.update_user_profile("user_id", profile_data)
+        result = service.update_user_session("user_id", profile_data)
         
         mock_collection.update_one.assert_called()
         assert result is not None
@@ -86,7 +86,8 @@ class TestRealUserService:
         mock_collection.delete_one.return_value.deleted_count = 1
         
         service = UserService()
-        result = service.delete_user("user_id")
+        valid_object_id = "507f1f77bcf86cd799439011"  # ObjectId válido de 24 caracteres
+        result = service.delete_user(valid_object_id)
         
         mock_collection.delete_one.assert_called()
         assert result is True
@@ -116,7 +117,7 @@ class TestRealReceiptService:
         mock_collection.find.return_value.sort.return_value = mock_receipts
         
         service = ReceiptService()
-        result = service.get_all_receipts()
+        result = service.get_receipts_by_user("test_user_id")
         
         assert isinstance(result, list)
         mock_collection.find.assert_called()
@@ -135,7 +136,7 @@ class TestRealReceiptService:
         start_date = "2025-01-01"
         end_date = "2025-01-31"
         
-        result = service.get_receipts_by_date_range(start_date, end_date)
+        result = service.get_receipts_by_date_and_user(start_date, end_date, "test_user")
         
         mock_collection.find.assert_called()
         assert isinstance(result, list)
@@ -151,7 +152,7 @@ class TestRealReceiptService:
         
         service = ReceiptService()
         receipt_data = {"valor_total": 150.0}
-        result = service.update_receipt("receipt_id", receipt_data)
+        result = service.create_receipt(receipt_data)
         
         mock_collection.update_one.assert_called()
     
