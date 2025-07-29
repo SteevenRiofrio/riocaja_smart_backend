@@ -52,7 +52,7 @@ def create_professional_test_report():
     
     # Solo mostrar el slice de éxito ya que no hay fallidas
     wedges, texts, autotexts = ax2.pie([100], labels=['Pruebas Exitosas\n21/21'], colors=['#28a745'], 
-                                      autopct='100%', startangle=90, 
+                                     autopct='%1.1f%%', startangle=90, 
                                       textprops={'fontsize': 12, 'fontweight': 'bold'})
     
     ax2.set_title('Tasa de Éxito de Pruebas', fontsize=16, fontweight='bold', pad=20)
