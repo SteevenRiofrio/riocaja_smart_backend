@@ -2,7 +2,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from app.routes import auth, receipts, password_reset, messages
+from app.routes import auth, receipts, password_reset, messages, pdf_reports
 from app.config import API_PREFIX
 from app.services.user_service import UserService
 import logging
@@ -29,6 +29,7 @@ app.include_router(auth.router, prefix=f"{API_PREFIX}/auth", tags=["Auth"])
 app.include_router(receipts.router, prefix=f"{API_PREFIX}/receipts", tags=["Receipts"])
 app.include_router(password_reset.router, prefix=f"{API_PREFIX}/password-reset", tags=["Password Reset"])
 app.include_router(messages.router, prefix=f"{API_PREFIX}/messages", tags=["Messages"])
+app.include_router(pdf_reports.router, prefix=f"{API_PREFIX}", tags=["PDF Reports"])
 
 # ===== MODELOS PARA TÉRMINOS Y CONDICIONES =====
 class TermsAcceptanceRequest(BaseModel):
