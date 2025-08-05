@@ -6,6 +6,9 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from typing import Dict, Any, Optional
 import logging
+import base64
+import tempfile
+import os
 
 # ✅ CORRECCIÓN: Importar la configuración del archivo config.py
 from app.config import (
@@ -459,3 +462,153 @@ class EmailService:
         }
         
         return action_messages.get(tipo, action_messages['informativo'])
+    
+    def send_pdf_report_backup(self, recipient_email: str, recipient_name: str, 
+                          report_date: str, pdf_base64: str, pdf_filename: str,
+                          report_summary: Dict[str, Any]) -> bool:
+        """Envío de reporte PDF como respaldo por correo"""
+        try:
+            # Decodificar el PDF de base64
+            pdf_data = base64.b64decode(pdf_base64)
+            # Crear archivo temporal
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+                temp_file.write(pdf_data)
+                temp_file_path = temp_file.name
+
+            subject = f"📊 Respaldo Reporte de Cierre - {report_date} - {self.company_name}"
+
+            # Extraer información del resumen
+            total_ingresos = report_summary.get('total_ingresos', 0)
+            total_egresos = report_summary.get('total_egresos', 0)
+            saldo_en_caja = report_summary.get('saldo_en_caja', 0)
+            total_transacciones = report_summary.get('total_transacciones', 0)
+            estado_caja = report_summary.get('estado_caja', 'POSITIVO')
+
+            estado_config = {
+                'POSITIVO': {'color': '#2e7d32', 'bg': '#e8f5e8', 'emoji': '✅'},
+                'NEGATIVO': {'color': '#d32f2f', 'bg': '#ffebee', 'emoji': '⚠️'},
+            }
+            config = estado_config.get(estado_caja, estado_config['POSITIVO'])
+
+            content = f"""
+            <h2 style="color: #1976d2; margin-bottom: 20px;">📊 Respaldo Automático - Reporte de Cierre</h2>
+            <p>Hola <strong>{recipient_name}</strong>,</p>
+            <p>Se ha generado automáticamente el respaldo de tu reporte de cierre correspondiente al <strong>{report_date}</strong>.</p>
+            <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin: 0 0 15px 0; color: #1976d2;">📋 Resumen del Día</h3>
+                <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>💰 Total Ingresos:</strong></td>
+                        <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right; color: #2e7d32;">
+                            <strong>${total_ingresos:,.2f}</strong>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>💸 Total Egresos:</strong></td>
+                        <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right; color: #d32f2f;">
+                            <strong>${total_egresos:,.2f}</strong>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>📊 Total Transacciones:</strong></td>
+                        <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">
+                            <strong>{total_transacciones}</strong>
+                        </td>
+                    </tr>
+                    <tr style="background-color: {config['bg']};">
+                        <td style="padding: 12px; border: 2px solid {config['color']}; font-size: 16px;">
+                            <strong>{config['emoji']} Saldo en Caja:</strong>
+                        </td>
+                        <td style="padding: 12px; border: 2px solid {config['color']}; text-align: right; color: {config['color']}; font-size: 18px;">
+                            <strong>${saldo_en_caja:,.2f}</strong>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1976d2;">
+                <p style="margin: 0 0 10px 0;"><strong>📎 Archivo Adjunto:</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Nombre:</strong> {pdf_filename}</li>
+                    <li><strong>Formato:</strong> PDF</li>
+                    <li><strong>Fecha de generación:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</li>
+                </ul>
+            </div>
+            <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff9800;">
+                <p style="margin: 0; color: #f57c00;"><strong>📝 Notas Importantes:</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px; color: #666;">
+                    <li>Este respaldo se genera automáticamente cuando generas un reporte desde la aplicación</li>
+                    <li>Conserva este correo para tus registros contables</li>
+                    <li>El archivo PDF contiene el detalle completo de todas las transacciones</li>
+                    <li>Si necesitas soporte, contacta al administrador del sistema</li>
+                </ul>
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="background-color: #1976d2; color: white; padding: 15px 30px; border-radius: 6px; display: inline-block; margin: 0;">
+                    📱 Respaldo generado desde RioCaja Smart
+                </p>
+            </div>
+            <hr style="border: 0; height: 1px; background: #ddd; margin: 30px 0;">
+            <p style="margin: 0; color: #666; font-size: 12px; text-align: center;">
+                Este es un mensaje automático generado por el sistema RioCaja Smart.<br>
+                Por favor no respondas a este correo.
+            </p>
+            """
+
+            html_body = self._get_base_template(content, "Respaldo Reporte de Cierre")
+            result = self._send_email_with_attachment(
+                recipient_email, 
+                subject, 
+                html_body, 
+                temp_file_path, 
+                pdf_filename
+            )
+            try:
+                os.unlink(temp_file_path)
+            except Exception:
+                pass
+            return result
+        except Exception as e:
+            logger.error(f"Error al enviar PDF por correo: {e}")
+            return False
+
+    def _send_email_with_attachment(self, to_email: str, subject: str, html_body: str, 
+                                   attachment_path: str, attachment_name: str) -> bool:
+        """Enviar email con archivo adjunto"""
+        try:
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+            from email.mime.base import MIMEBase
+            from email import encoders
+
+            message = MIMEMultipart()
+            message["Subject"] = subject
+            message["From"] = f"{self.mail_from_name} <{self.mail_from}>"
+            message["To"] = to_email
+
+            # Cuerpo HTML
+            message.attach(MIMEText(html_body, "html", "utf-8"))
+
+            # Adjuntar archivo
+            with open(attachment_path, "rb") as attachment:
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(attachment.read())
+            encoders.encode_base64(part)
+            part.add_header(
+                'Content-Disposition',
+                f'attachment; filename="{attachment_name}"',
+            )
+            message.attach(part)
+
+            import smtplib
+            import ssl
+            context = ssl.create_default_context()
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                if MAIL_STARTTLS:
+                    server.starttls(context=context)
+                server.login(self.email_user, self.email_password)
+                server.send_message(message)
+            logger.info(f"✅ Email con PDF enviado a: {to_email}")
+            return True
+        except Exception as e:
+            logger.error(f"Error al enviar email con adjunto: {e}")
+            return False
