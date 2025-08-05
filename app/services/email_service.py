@@ -348,35 +348,114 @@ class EmailService:
     
     def send_new_message_notification(self, user_email: str, user_name: str, message_data: Dict[str, Any]) -> bool:
         """Notificación de nuevo mensaje para CNB"""
-        subject = f"📢 Nuevo Mensaje - {self.company_name}"
         
-        message_type_icons = {
-            'informativo': '📋',
-            'importante': '⚠️',
-            'urgente': '🚨',
-            'aviso': '📣'
+        # Mapeo correcto de tipos de mensaje con íconos y colores
+        message_type_config = {
+            'informativo': {
+                'icon': '📋',
+                'color': '#1976d2',
+                'bg_color': '#e3f2fd',
+                'label': 'INFORMATIVO'
+            },
+            'advertencia': {
+                'icon': '⚠️',
+                'color': '#f57c00',
+                'bg_color': '#fff3e0',
+                'label': 'ADVERTENCIA'
+            },
+            'urgente': {
+                'icon': '🚨',
+                'color': '#d32f2f',
+                'bg_color': '#ffebee',
+                'label': 'URGENTE'
+            }
         }
         
-        tipo = message_data.get('tipo', 'informativo')
-        icon = message_type_icons.get(tipo, '📋')
+        tipo = message_data.get('tipo', 'informativo').lower()
+        config = message_type_config.get(tipo, message_type_config['informativo'])
+        
+        # Título del email con tipo de mensaje
+        subject = f"{config['icon']} [{config['label']}] Nuevo Mensaje - {self.company_name}"
         
         content = f"""
-        <h2 style="color: #1976d2; margin-bottom: 20px;">{icon} Nuevo Mensaje</h2>
+        <h2 style="color: {config['color']}; margin-bottom: 20px;">
+            {config['icon']} Nuevo Mensaje - {config['label']}
+        </h2>
         
         <p>Hola <strong>{user_name}</strong>,</p>
-        <p>Tienes un nuevo mensaje en <strong>{self.company_name}</strong>:</p>
+        <p>Tienes un nuevo mensaje <strong>{config['label'].lower()}</strong> en <strong>{self.company_name}</strong>:</p>
         
-        <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1976d2;">
-            <h3 style="margin: 0 0 10px 0; color: #1976d2;">{message_data.get('titulo', 'Sin título')}</h3>
-            <p style="margin: 10px 0; color: #333; line-height: 1.6;">{message_data.get('contenido', '')}</p>
+        <div style="background-color: {config['bg_color']}; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid {config['color']};">
+            <!-- Etiqueta del tipo de mensaje -->
+            <div style="margin-bottom: 15px;">
+                <span style="background-color: {config['color']}; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+                    {config['icon']} {config['label']}
+                </span>
+            </div>
             
-            <hr style="border: 0; height: 1px; background: #1976d2; margin: 15px 0;">
+            <!-- Título del mensaje -->
+            <h3 style="margin: 0 0 10px 0; color: {config['color']};">
+                {message_data.get('titulo', 'Sin título')}
+            </h3>
+            
+            <!-- Contenido del mensaje -->
+            <p style="margin: 10px 0; color: #333; line-height: 1.6;">
+                {message_data.get('contenido', '')}
+            </p>
+            
+            <!-- Información adicional -->
+            <hr style="border: 0; height: 1px; background: {config['color']}; margin: 15px 0;">
+            
+            <!-- Fecha de vencimiento si existe -->
+            {self._get_expiry_info(message_data, config['color'])}
             
             <p style="margin: 0; color: #666; font-size: 12px;">
                 Este es un mensaje automático, por favor no respondas.
             </p>
         </div>
+        
+        <!-- Mensaje de acción según el tipo -->
+        {self._get_action_message(tipo, config)}
         """
         
-        html_body = self._get_base_template(content, "Nuevo Mensaje")
+        html_body = self._get_base_template(content, f"Nuevo Mensaje {config['label']}")
         return self._send_email(user_email, subject, html_body)
+
+    def _get_expiry_info(self, message_data: Dict[str, Any], color: str) -> str:
+        """Genera información de fecha de vencimiento si existe"""
+        visible_hasta = message_data.get('visible_hasta')
+        if visible_hasta:
+            return f"""
+            <p style="margin: 10px 0; color: {color}; font-weight: bold;">
+                📅 Visible hasta: {visible_hasta}
+            </p>
+            """
+        return ""
+
+    def _get_action_message(self, tipo: str, config: Dict[str, str]) -> str:
+        """Genera mensaje de acción según el tipo de mensaje"""
+        action_messages = {
+            'informativo': """
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; color: #333; font-size: 14px;">
+                    Este es un mensaje informativo. No se requiere acción inmediata.
+                </p>
+            </div>
+            """,
+            'advertencia': """
+            <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; color: #333; font-size: 14px;">
+                    Atención: Este es un mensaje de advertencia. Por favor revisa los detalles.
+                </p>
+            </div>
+            """,
+            'urgente': """
+            <div style="background-color: #ffebee; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; color: #333; font-size: 14px;">
+                    Urgente: Se requiere tu atención inmediata a este mensaje.
+                </p>
+            </div>
+            """
+        }
+        
+        return action_messages.get(tipo, action_messages['informativo'])
