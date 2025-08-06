@@ -243,6 +243,10 @@ class UserService:
             return None
 
     def get_user_info(self, user_id: str):
+            """
+            Obtener información del usuario INCLUYENDO session_id para middleware
+            ⚠️ IMPORTANTE: No eliminar session_id aquí porque lo necesita el middleware
+          """
         try:
             self._ensure_connection()
             
@@ -250,7 +254,7 @@ class UserService:
             if user:
                 # Limpiar datos sensibles
                 user.pop("password_hash", None)
-                user.pop("session_id", None)
+                #user.pop("session_id", None)
                 
                 # Convertir ObjectIds a string
                 cleaned_user = clean_objectid_fields(user)
@@ -260,6 +264,28 @@ class UserService:
         except Exception as e:
             logger.error(f"Error obteniendo info del usuario {user_id}: {e}")
             return None
+
+    def get_user_public_info(self, user_id: str):
+        """
+        Obtener información pública del usuario (sin session_id ni datos sensibles)
+        """
+        try:
+             self._ensure_connection()
+        
+             user = self.users.find_one({"_id": ObjectId(user_id)})
+             if user:
+                 # Eliminar TODOS los datos sensibles para uso público
+                 user.pop("password_hash", None)
+                 user.pop("session_id", None)
+            
+                 # Convertir ObjectIds a string
+                 cleaned_user = clean_objectid_fields(user)
+                 return cleaned_user
+             return None
+        
+         except Exception as e:
+             logger.error(f"Error obteniendo info pública del usuario {user_id}: {e}")
+             return None
 
     def get_user_by_id(self, user_id: str) -> Optional[dict]:
         try:

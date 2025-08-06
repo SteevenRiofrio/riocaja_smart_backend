@@ -130,16 +130,18 @@ def register(user: UserRegister):
         logger.error(f"Error en registro: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
+# app/routes/auth.py - TU CÓDIGO + SOLO 1 LÍNEA ADICIONAL
+
 @router.post("/login")
 def login(user: UserLogin):
     if not user_service:
         raise HTTPException(status_code=503, detail="Servicio de usuario no disponible")
-    
+     
     try:
         user_db = user_service.authenticate_user(user.email, user.password)
         if not user_db:
             raise HTTPException(status_code=400, detail="Credenciales incorrectas")
-
+        
         # Verificar estado del usuario
         user_state = user_db.get("estado", "pendiente")
         user_role = user_db.get("rol", "cnb")
@@ -156,7 +158,7 @@ def login(user: UserLogin):
             message = state_messages.get(user_state, f"Su cuenta está en estado {user_state}. Contacte al administrador.")
             
             raise HTTPException(status_code=403, detail=message)
-
+        
         # ✅ NUEVO: Para admin/asesor, asegurar perfil completo
         perfil_completo = user_db.get("perfil_completo", False)
         if user_role in ["admin", "asesor"] and not perfil_completo:
@@ -164,14 +166,17 @@ def login(user: UserLogin):
             user_service.mark_admin_profile_complete(str(user_db["_id"]))
             perfil_completo = True
             logger.info(f"✅ Perfil de {user_role} auto-completado en login: {user_db['_id']}")
-
+        
+        # 🔥 SOLO ESTA LÍNEA ES NUEVA - Para verificar que funciona el session_id
+        logger.info(f"🔑 Login exitoso: {user.email} - Session ID: {user_db.get('session_id', 'N/A')[:8]}...")
+        
         # Crear tokens
         token_data = {
             "sub": str(user_db["_id"]),
             "email": user_db["email"],
             "rol": user_role,
             "estado": user_state,
-            "session_id": user_db.get("session_id", ""),
+            "session_id": user_db.get("session_id", ""),  # ✅ Ya tienes esto correcto
             "perfil_completo": perfil_completo
         }
         
