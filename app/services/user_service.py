@@ -1,4 +1,4 @@
-# app/services/user_service.py - VERSIÓN ARREGLADA COMPLETA
+# app/services/user_service.py - VERSIÓN COMPLETA FINAL
 import logging
 import uuid
 import os
@@ -64,61 +64,6 @@ class UserService:
             self.db = None
             self.users = None
             self.collection = None
-
-    def change_user_role(self, user_id: str, new_role: str, changed_by: str = None) -> bool:
-        """Cambiar rol de usuario"""
-        try:
-            self._ensure_connection()
-            
-            # Roles válidos en tu sistema
-            valid_roles = ["admin", "asesor", "cnb"]
-            if new_role not in valid_roles:
-                logger.error(f"Rol inválido: {new_role}")
-                return False
-            
-            # Verificar que el usuario existe
-            user_data = self.users.find_one({"_id": ObjectId(user_id)})
-            if not user_data:
-                logger.error(f"Usuario no encontrado: {user_id}")
-                return False
-            
-            # Datos de actualización
-            update_data = {
-                "rol": new_role,
-                "fecha_cambio_rol": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            }
-            
-            # Si es admin o asesor, marcar perfil como completo y asignar códigos especiales
-            if new_role in ["admin", "asesor"]:
-                update_data.update({
-                    "perfil_completo": True,
-                    "estado": "activo",
-                    "codigo_corresponsal": new_role.upper(),
-                    "nombre_local": "Administración" if new_role == "admin" else "Asesoría"
-                })
-            
-            # Registrar quién hizo el cambio
-            if changed_by:
-                update_data["rol_cambiado_por"] = changed_by
-            
-            # Actualizar en la base de datos
-            result = self.users.update_one(
-                {"_id": ObjectId(user_id)},
-                {"$set": update_data}
-            )
-            
-            success = result.modified_count > 0
-            if success:
-                logger.info(f"Rol de usuario cambiado a '{new_role}' para usuario: {user_id}")
-            else:
-                logger.warning(f"No se pudo cambiar rol de usuario: {user_id}")
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error cambiando rol de usuario: {e}")
-            return False
 
     def _ensure_connection(self):
         """Asegurar que la conexión a MongoDB está activa"""
@@ -242,53 +187,50 @@ class UserService:
             logger.error(f"Error en autenticación: {e}")
             return None
 
-def get_user_info(self, user_id: str):
-    """
-    Obtener información del usuario INCLUYENDO session_id para middleware
-    """
-    try:
-        self._ensure_connection()
-        
-        user = self.users.find_one({"_id": ObjectId(user_id)})
-        if user:
-            # Limpiar datos sensibles
-            user.pop("password_hash", None)
-            # user.pop("session_id", None)  # ← COMENTADA
+    def get_user_info(self, user_id: str):
+        """
+        Obtener información del usuario INCLUYENDO session_id para middleware
+        ⚠️ IMPORTANTE: No eliminar session_id aquí porque lo necesita el middleware
+        """
+        try:
+            self._ensure_connection()
             
-            # Convertir ObjectIds a string
-            cleaned_user = clean_objectid_fields(user)
-            return cleaned_user
-        return None
-        
-    except Exception as e:
-        logger.error(f"Error obteniendo info del usuario {user_id}: {e}")
-        return None
+            user = self.users.find_one({"_id": ObjectId(user_id)})
+            if user:
+                # 🔥 CAMBIO CRÍTICO: Solo eliminar password_hash, MANTENER session_id
+                user.pop("password_hash", None)
+                # user.pop("session_id", None)  # ← COMENTADA para control de sesiones múltiples
+                
+                # Convertir ObjectIds a string
+                cleaned_user = clean_objectid_fields(user)
+                return cleaned_user
+            return None
             
         except Exception as e:
             logger.error(f"Error obteniendo info del usuario {user_id}: {e}")
             return None
 
-def get_user_public_info(self, user_id: str):
-    """
-    Obtener información pública del usuario (sin session_id ni datos sensibles)
-    """
-    try:
-        self._ensure_connection()
-        
-        user = self.users.find_one({"_id": ObjectId(user_id)})
-        if user:
-            # Eliminar TODOS los datos sensibles para uso público
-            user.pop("password_hash", None)
-            user.pop("session_id", None)
+    def get_user_public_info(self, user_id: str):
+        """
+        Obtener información pública del usuario (sin session_id ni datos sensibles)
+        """
+        try:
+            self._ensure_connection()
             
-            # Convertir ObjectIds a string
-            cleaned_user = clean_objectid_fields(user)
-            return cleaned_user
-        return None
-        
-    except Exception as e:
-        logger.error(f"Error obteniendo info pública del usuario {user_id}: {e}")
-        return None
+            user = self.users.find_one({"_id": ObjectId(user_id)})
+            if user:
+                # Eliminar TODOS los datos sensibles para uso público
+                user.pop("password_hash", None)
+                user.pop("session_id", None)
+                
+                # Convertir ObjectIds a string
+                cleaned_user = clean_objectid_fields(user)
+                return cleaned_user
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo info pública del usuario {user_id}: {e}")
+            return None
 
     def get_user_by_id(self, user_id: str) -> Optional[dict]:
         try:
@@ -628,6 +570,61 @@ def get_user_public_info(self, user_id: str):
             logger.error(f"Error convirtiendo usuario en asesor: {e}")
             return False
 
+    def change_user_role(self, user_id: str, new_role: str, changed_by: str = None) -> bool:
+        """Cambiar rol de usuario"""
+        try:
+            self._ensure_connection()
+            
+            # Roles válidos en tu sistema
+            valid_roles = ["admin", "asesor", "cnb"]
+            if new_role not in valid_roles:
+                logger.error(f"Rol inválido: {new_role}")
+                return False
+            
+            # Verificar que el usuario existe
+            user_data = self.users.find_one({"_id": ObjectId(user_id)})
+            if not user_data:
+                logger.error(f"Usuario no encontrado: {user_id}")
+                return False
+            
+            # Datos de actualización
+            update_data = {
+                "rol": new_role,
+                "fecha_cambio_rol": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            
+            # Si es admin o asesor, marcar perfil como completo y asignar códigos especiales
+            if new_role in ["admin", "asesor"]:
+                update_data.update({
+                    "perfil_completo": True,
+                    "estado": "activo",
+                    "codigo_corresponsal": new_role.upper(),
+                    "nombre_local": "Administración" if new_role == "admin" else "Asesoría"
+                })
+            
+            # Registrar quién hizo el cambio
+            if changed_by:
+                update_data["rol_cambiado_por"] = changed_by
+            
+            # Actualizar en la base de datos
+            result = self.users.update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": update_data}
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Rol de usuario cambiado a '{new_role}' para usuario: {user_id}")
+            else:
+                logger.warning(f"No se pudo cambiar rol de usuario: {user_id}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error cambiando rol de usuario: {e}")
+            return False
+
     def update_user_session(self, user_id: str, new_session_id: str):
         try:
             self._ensure_connection()
@@ -868,7 +865,7 @@ def get_user_public_info(self, user_id: str):
                 update_data["fecha_acepta_terminos"] = datetime.utcnow()
             
             result = self.users.update_one(
-                {"_id": user_id},
+                {"_id": ObjectId(user_id)},
                 {"$set": update_data}
             )
             
@@ -896,7 +893,7 @@ def get_user_public_info(self, user_id: str):
             self._ensure_connection()
             
             user = self.users.find_one(
-                {"_id": user_id},
+                {"_id": ObjectId(user_id)},
                 {"acepto_terminos": 1, "fecha_acepta_terminos": 1}
             )
             
