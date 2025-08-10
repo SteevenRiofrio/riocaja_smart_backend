@@ -1,0 +1,22 @@
+{
+  "filename": "receipt_10_pichincha_rotated.jpg",
+  "expected_data": {
+    "banco": "BANCO PICHINCHA",
+    "fecha": "01/08/2025",
+    "hora": "16:40:46",
+    "numero_transaccion": "203900010",
+    "monto": "12.08",
+    "tipo": "Depósito",
+    "comercio": "Kiosko Central",
+    "terminal": "T5546",
+    "codigo_autorizacion": "AUT785215"
+  },
+  "expected_accuracy": 0.882,
+  "bank": "pichincha",
+  "condition": "rotated",
+  "test_conditions": {
+    "bank": "pichincha",
+    "conditions": "rotated",
+    "expected_accuracy": 0.882
+  }
+}

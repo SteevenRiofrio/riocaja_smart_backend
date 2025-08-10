@@ -1,0 +1,22 @@
+{
+  "filename": "receipt_03_produbanco_wrinkled.jpg",
+  "expected_data": {
+    "banco": "PRODUBANCO",
+    "fecha": "04/08/2025",
+    "hora": "19:44:18",
+    "numero_transaccion": "203900003",
+    "monto": "61.79",
+    "tipo": "Retiro",
+    "comercio": "Kiosko Central",
+    "terminal": "T2073",
+    "codigo_autorizacion": "AUT735017"
+  },
+  "expected_accuracy": 0.6240000000000001,
+  "bank": "produbanco",
+  "condition": "wrinkled",
+  "test_conditions": {
+    "bank": "produbanco",
+    "conditions": "wrinkled",
+    "expected_accuracy": 0.6240000000000001
+  }
+}

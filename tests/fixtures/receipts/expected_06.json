@@ -1,0 +1,22 @@
+{
+  "filename": "receipt_06_banco_guayaquil_optimal.jpg",
+  "expected_data": {
+    "banco": "BANCO DE GUAYAQUIL",
+    "fecha": "02/08/2025",
+    "hora": "17:58:26",
+    "numero_transaccion": "203900006",
+    "monto": "15.16",
+    "tipo": "Recarga movistar",
+    "comercio": "Kiosko Central",
+    "terminal": "T7113",
+    "codigo_autorizacion": "AUT434900"
+  },
+  "expected_accuracy": 0.92,
+  "bank": "banco_guayaquil",
+  "condition": "optimal",
+  "test_conditions": {
+    "bank": "banco_guayaquil",
+    "conditions": "optimal",
+    "expected_accuracy": 0.92
+  }
+}

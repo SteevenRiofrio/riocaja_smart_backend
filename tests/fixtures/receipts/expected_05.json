@@ -1,0 +1,22 @@
+{
+  "filename": "receipt_05_pichincha_rotated.jpg",
+  "expected_data": {
+    "banco": "BANCO PICHINCHA",
+    "fecha": "05/08/2025",
+    "hora": "15:54:57",
+    "numero_transaccion": "203900005",
+    "monto": "101.28",
+    "tipo": "Retiro",
+    "comercio": "Víveres Brandon",
+    "terminal": "T8628",
+    "codigo_autorizacion": "AUT913651"
+  },
+  "expected_accuracy": 0.882,
+  "bank": "pichincha",
+  "condition": "rotated",
+  "test_conditions": {
+    "bank": "pichincha",
+    "conditions": "rotated",
+    "expected_accuracy": 0.882
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "filename": "receipt_11_banco_guayaquil_optimal.jpg",
+  "expected_data": {
+    "banco": "BANCO DE GUAYAQUIL",
+    "fecha": "08/08/2025",
+    "hora": "18:59:39",
+    "numero_transaccion": "203900011",
+    "monto": "73.26",
+    "tipo": "Pago servicios",
+    "comercio": "Comercial JG",
+    "terminal": "T4025",
+    "codigo_autorizacion": "AUT942950"
+  },
+  "expected_accuracy": 0.92,
+  "bank": "banco_guayaquil",
+  "condition": "optimal",
+  "test_conditions": {
+    "bank": "banco_guayaquil",
+    "conditions": "optimal",
+    "expected_accuracy": 0.92
+  }
+}

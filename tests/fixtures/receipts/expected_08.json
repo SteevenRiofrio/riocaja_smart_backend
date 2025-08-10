@@ -1,0 +1,22 @@
+{
+  "filename": "receipt_08_produbanco_wrinkled.jpg",
+  "expected_data": {
+    "banco": "PRODUBANCO",
+    "fecha": "04/08/2025",
+    "hora": "15:34:18",
+    "numero_transaccion": "203900008",
+    "monto": "37.04",
+    "tipo": "Recarga claro",
+    "comercio": "Víveres Brandon",
+    "terminal": "T3242",
+    "codigo_autorizacion": "AUT359460"
+  },
+  "expected_accuracy": 0.6240000000000001,
+  "bank": "produbanco",
+  "condition": "wrinkled",
+  "test_conditions": {
+    "bank": "produbanco",
+    "conditions": "wrinkled",
+    "expected_accuracy": 0.6240000000000001
+  }
+}

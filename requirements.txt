@@ -1,3 +1,4 @@
+# ===== CORE DEPENDENCIES (Backend funcional) =====
 aiofiles==23.2.1
 aiosmtplib==2.0.2
 annotated-types==0.7.0
@@ -39,6 +40,20 @@ uvicorn==0.35.0
 watchfiles==1.1.0
 websockets==15.0.1
 openpyxl==3.1.2
-pandas==2.1.4
 python-multipart==0.0.6
 werkzeug==3.0.1
+
+# ===== TESTING BÁSICO (Sin problemas en Windows) =====
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-html==4.1.1
+requests==2.31.0
+faker==19.12.0
+
+# ===== OPCIONAL: OCR (puede fallar, pero no es crítico) =====
+# Pillow==10.4.0
+# pytesseract==0.3.10
+
+# NOTA: Si Pillow falla, instalar manualmente con:
+# pip install --upgrade pip
+# pip install Pillow --upgrade

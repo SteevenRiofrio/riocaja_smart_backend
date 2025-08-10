@@ -1,0 +1,22 @@
+{
+  "filename": "receipt_02_banco_pacifico_poor_lighting.jpg",
+  "expected_data": {
+    "banco": "BANCO DEL PACÍFICO",
+    "fecha": "01/08/2025",
+    "hora": "11:15:33",
+    "numero_transaccion": "203900002",
+    "monto": "126.97",
+    "tipo": "Transferencia",
+    "comercio": "Tienda María",
+    "terminal": "T5121",
+    "codigo_autorizacion": "AUT735378"
+  },
+  "expected_accuracy": 0.792,
+  "bank": "banco_pacifico",
+  "condition": "poor_lighting",
+  "test_conditions": {
+    "bank": "banco_pacifico",
+    "conditions": "poor_lighting",
+    "expected_accuracy": 0.792
+  }
+}

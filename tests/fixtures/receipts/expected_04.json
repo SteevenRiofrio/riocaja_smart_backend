@@ -1,0 +1,22 @@
+{
+  "filename": "receipt_04_banco_internacional_faded.jpg",
+  "expected_data": {
+    "banco": "BANCO INTERNACIONAL",
+    "fecha": "04/08/2025",
+    "hora": "14:16:56",
+    "numero_transaccion": "203900004",
+    "monto": "65.45",
+    "tipo": "Recarga movistar",
+    "comercio": "Víveres Brandon",
+    "terminal": "T2089",
+    "codigo_autorizacion": "AUT120779"
+  },
+  "expected_accuracy": 0.7224999999999999,
+  "bank": "banco_internacional",
+  "condition": "faded",
+  "test_conditions": {
+    "bank": "banco_internacional",
+    "conditions": "faded",
+    "expected_accuracy": 0.7224999999999999
+  }
+}

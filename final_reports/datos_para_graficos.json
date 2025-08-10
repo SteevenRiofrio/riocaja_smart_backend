@@ -1,0 +1,90 @@
+{
+  "precision_por_banco": [
+    {
+      "banco": "Banco de Guayaquil",
+      "precision": "82.2%",
+      "precision_decimal": 0.8222222222222222
+    },
+    {
+      "banco": "Banco del Pacífico",
+      "precision": "80.8%",
+      "precision_decimal": 0.8083333333333333
+    },
+    {
+      "banco": "Produbanco",
+      "precision": "80.8%",
+      "precision_decimal": 0.8083333333333333
+    },
+    {
+      "banco": "Banco Internacional",
+      "precision": "81.7%",
+      "precision_decimal": 0.8166666666666667
+    },
+    {
+      "banco": "Pichincha",
+      "precision": "83.3%",
+      "precision_decimal": 0.8333333333333334
+    }
+  ],
+  "tiempos_procesamiento": [
+    {
+      "test_id": "Test 01",
+      "tiempo": 0.01558828353881836,
+      "banco": "Banco Guayaquil"
+    },
+    {
+      "test_id": "Test 02",
+      "tiempo": 0.005075693130493164,
+      "banco": "Banco Pacifico"
+    },
+    {
+      "test_id": "Test 03",
+      "tiempo": 0.004500389099121094,
+      "banco": "Produbanco"
+    },
+    {
+      "test_id": "Test 04",
+      "tiempo": 0.00472712516784668,
+      "banco": "Banco Internacional"
+    },
+    {
+      "test_id": "Test 05",
+      "tiempo": 0.005129575729370117,
+      "banco": "Pichincha"
+    },
+    {
+      "test_id": "Test 06",
+      "tiempo": 0.004720926284790039,
+      "banco": "Banco Guayaquil"
+    },
+    {
+      "test_id": "Test 07",
+      "tiempo": 0.0054056644439697266,
+      "banco": "Banco Pacifico"
+    },
+    {
+      "test_id": "Test 08",
+      "tiempo": 0.004658222198486328,
+      "banco": "Produbanco"
+    },
+    {
+      "test_id": "Test 09",
+      "tiempo": 0.004487276077270508,
+      "banco": "Banco Internacional"
+    },
+    {
+      "test_id": "Test 10",
+      "tiempo": 0.005372524261474609,
+      "banco": "Pichincha"
+    },
+    {
+      "test_id": "Test 11",
+      "tiempo": 0.0045545101165771484,
+      "banco": "Banco Guayaquil"
+    }
+  ],
+  "instrucciones": {
+    "precision_por_banco": "Usar para crear gráfico de barras con bancos en X y precisión en Y",
+    "tiempos_procesamiento": "Usar para crear gráfico de líneas con tests en X y tiempo en Y"
+  }
+}

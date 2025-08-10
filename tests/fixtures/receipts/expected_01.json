@@ -1,0 +1,22 @@
+{
+  "filename": "receipt_01_banco_guayaquil_optimal.jpg",
+  "expected_data": {
+    "banco": "BANCO DE GUAYAQUIL",
+    "fecha": "03/08/2025",
+    "hora": "19:58:14",
+    "numero_transaccion": "203900001",
+    "monto": "45.71",
+    "tipo": "Depósito",
+    "comercio": "Kiosko Central",
+    "terminal": "T8737",
+    "codigo_autorizacion": "AUT783244"
+  },
+  "expected_accuracy": 0.92,
+  "bank": "banco_guayaquil",
+  "condition": "optimal",
+  "test_conditions": {
+    "bank": "banco_guayaquil",
+    "conditions": "optimal",
+    "expected_accuracy": 0.92
+  }
+}

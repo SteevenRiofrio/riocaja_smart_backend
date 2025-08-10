@@ -1,0 +1,22 @@
+{
+  "filename": "receipt_07_banco_pacifico_poor_lighting.jpg",
+  "expected_data": {
+    "banco": "BANCO DEL PACÍFICO",
+    "fecha": "06/08/2025",
+    "hora": "12:35:51",
+    "numero_transaccion": "203900007",
+    "monto": "16.76",
+    "tipo": "Pago servicios",
+    "comercio": "Víveres Brandon",
+    "terminal": "T6991",
+    "codigo_autorizacion": "AUT711097"
+  },
+  "expected_accuracy": 0.792,
+  "bank": "banco_pacifico",
+  "condition": "poor_lighting",
+  "test_conditions": {
+    "bank": "banco_pacifico",
+    "conditions": "poor_lighting",
+    "expected_accuracy": 0.792
+  }
+}

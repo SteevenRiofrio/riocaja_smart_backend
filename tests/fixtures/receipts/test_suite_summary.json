@@ -1,0 +1,205 @@
+{
+  "total_receipts": 11,
+  "generated_at": "2025-08-09T22:13:11.607480",
+  "description": "Suite de comprobantes para testing OCR de RIOCAJA SMART",
+  "receipts": [
+    {
+      "id": 1,
+      "filename": "receipt_01_banco_guayaquil_optimal.jpg",
+      "bank": "banco_guayaquil",
+      "condition": "optimal",
+      "expected_accuracy": 0.92,
+      "data": {
+        "banco": "BANCO DE GUAYAQUIL",
+        "fecha": "03/08/2025",
+        "hora": "19:58:14",
+        "numero_transaccion": "203900001",
+        "monto": "45.71",
+        "tipo": "Depósito",
+        "comercio": "Kiosko Central",
+        "terminal": "T8737",
+        "codigo_autorizacion": "AUT783244"
+      }
+    },
+    {
+      "id": 2,
+      "filename": "receipt_02_banco_pacifico_poor_lighting.jpg",
+      "bank": "banco_pacifico",
+      "condition": "poor_lighting",
+      "expected_accuracy": 0.792,
+      "data": {
+        "banco": "BANCO DEL PACÍFICO",
+        "fecha": "01/08/2025",
+        "hora": "11:15:33",
+        "numero_transaccion": "203900002",
+        "monto": "126.97",
+        "tipo": "Transferencia",
+        "comercio": "Tienda María",
+        "terminal": "T5121",
+        "codigo_autorizacion": "AUT735378"
+      }
+    },
+    {
+      "id": 3,
+      "filename": "receipt_03_produbanco_wrinkled.jpg",
+      "bank": "produbanco",
+      "condition": "wrinkled",
+      "expected_accuracy": 0.6240000000000001,
+      "data": {
+        "banco": "PRODUBANCO",
+        "fecha": "04/08/2025",
+        "hora": "19:44:18",
+        "numero_transaccion": "203900003",
+        "monto": "61.79",
+        "tipo": "Retiro",
+        "comercio": "Kiosko Central",
+        "terminal": "T2073",
+        "codigo_autorizacion": "AUT735017"
+      }
+    },
+    {
+      "id": 4,
+      "filename": "receipt_04_banco_internacional_faded.jpg",
+      "bank": "banco_internacional",
+      "condition": "faded",
+      "expected_accuracy": 0.7224999999999999,
+      "data": {
+        "banco": "BANCO INTERNACIONAL",
+        "fecha": "04/08/2025",
+        "hora": "14:16:56",
+        "numero_transaccion": "203900004",
+        "monto": "65.45",
+        "tipo": "Recarga movistar",
+        "comercio": "Víveres Brandon",
+        "terminal": "T2089",
+        "codigo_autorizacion": "AUT120779"
+      }
+    },
+    {
+      "id": 5,
+      "filename": "receipt_05_pichincha_rotated.jpg",
+      "bank": "pichincha",
+      "condition": "rotated",
+      "expected_accuracy": 0.882,
+      "data": {
+        "banco": "BANCO PICHINCHA",
+        "fecha": "05/08/2025",
+        "hora": "15:54:57",
+        "numero_transaccion": "203900005",
+        "monto": "101.28",
+        "tipo": "Retiro",
+        "comercio": "Víveres Brandon",
+        "terminal": "T8628",
+        "codigo_autorizacion": "AUT913651"
+      }
+    },
+    {
+      "id": 6,
+      "filename": "receipt_06_banco_guayaquil_optimal.jpg",
+      "bank": "banco_guayaquil",
+      "condition": "optimal",
+      "expected_accuracy": 0.92,
+      "data": {
+        "banco": "BANCO DE GUAYAQUIL",
+        "fecha": "02/08/2025",
+        "hora": "17:58:26",
+        "numero_transaccion": "203900006",
+        "monto": "15.16",
+        "tipo": "Recarga movistar",
+        "comercio": "Kiosko Central",
+        "terminal": "T7113",
+        "codigo_autorizacion": "AUT434900"
+      }
+    },
+    {
+      "id": 7,
+      "filename": "receipt_07_banco_pacifico_poor_lighting.jpg",
+      "bank": "banco_pacifico",
+      "condition": "poor_lighting",
+      "expected_accuracy": 0.792,
+      "data": {
+        "banco": "BANCO DEL PACÍFICO",
+        "fecha": "06/08/2025",
+        "hora": "12:35:51",
+        "numero_transaccion": "203900007",
+        "monto": "16.76",
+        "tipo": "Pago servicios",
+        "comercio": "Víveres Brandon",
+        "terminal": "T6991",
+        "codigo_autorizacion": "AUT711097"
+      }
+    },
+    {
+      "id": 8,
+      "filename": "receipt_08_produbanco_wrinkled.jpg",
+      "bank": "produbanco",
+      "condition": "wrinkled",
+      "expected_accuracy": 0.6240000000000001,
+      "data": {
+        "banco": "PRODUBANCO",
+        "fecha": "04/08/2025",
+        "hora": "15:34:18",
+        "numero_transaccion": "203900008",
+        "monto": "37.04",
+        "tipo": "Recarga claro",
+        "comercio": "Víveres Brandon",
+        "terminal": "T3242",
+        "codigo_autorizacion": "AUT359460"
+      }
+    },
+    {
+      "id": 9,
+      "filename": "receipt_09_banco_internacional_faded.jpg",
+      "bank": "banco_internacional",
+      "condition": "faded",
+      "expected_accuracy": 0.7224999999999999,
+      "data": {
+        "banco": "BANCO INTERNACIONAL",
+        "fecha": "08/08/2025",
+        "hora": "19:33:27",
+        "numero_transaccion": "203900009",
+        "monto": "29.40",
+        "tipo": "Pago servicios",
+        "comercio": "Víveres Brandon",
+        "terminal": "T6543",
+        "codigo_autorizacion": "AUT627205"
+      }
+    },
+    {
+      "id": 10,
+      "filename": "receipt_10_pichincha_rotated.jpg",
+      "bank": "pichincha",
+      "condition": "rotated",
+      "expected_accuracy": 0.882,
+      "data": {
+        "banco": "BANCO PICHINCHA",
+        "fecha": "01/08/2025",
+        "hora": "16:40:46",
+        "numero_transaccion": "203900010",
+        "monto": "12.08",
+        "tipo": "Depósito",
+        "comercio": "Kiosko Central",
+        "terminal": "T5546",
+        "codigo_autorizacion": "AUT785215"
+      }
+    },
+    {
+      "id": 11,
+      "filename": "receipt_11_banco_guayaquil_optimal.jpg",
+      "bank": "banco_guayaquil",
+      "condition": "optimal",
+      "expected_accuracy": 0.92,
+      "data": {
+        "banco": "BANCO DE GUAYAQUIL",
+        "fecha": "08/08/2025",
+        "hora": "18:59:39",
+        "numero_transaccion": "203900011",
+        "monto": "73.26",
+        "tipo": "Pago servicios",
+        "comercio": "Comercial JG",
+        "terminal": "T4025",
+        "codigo_autorizacion": "AUT942950"
+      }
+    }
+  ]
+}
