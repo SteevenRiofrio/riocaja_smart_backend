@@ -215,7 +215,7 @@ def login(user: UserLogin):
         logger.error(f"Error en login: {e}")
         raise HTTPException(status_code=500, detail="Error de conexión")
 
-@router.get("/me")
+@router.get("/me")   
 def me(user=Depends(get_current_user)):
     if not user_service:
         raise HTTPException(status_code=503, detail="Servicio de usuario no disponible")
