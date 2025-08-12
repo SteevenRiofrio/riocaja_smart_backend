@@ -224,19 +224,29 @@ def me(user=Depends(get_current_user)):
         user_id = user.get("sub")
         user_data = user_service.get_user_info(user_id)
         
+        # 🔍 AGREGAR LOGS DE DEPURACIÓN
+        logger.info(f"🔍 DEBUG - User ID: {user_id}")
+        logger.info(f"🔍 DEBUG - User data from DB: {user_data}")
+        
         if user_data:
-            # ✅ NUEVO: Para admin/asesor, asegurar que perfil_completo sea True
+            # ✅ VERIFICAR SI TIENE CODIGO_CORRESPONSAL
+            codigo = user_data.get("codigo_corresponsal")
+            logger.info(f"🔍 DEBUG - Código corresponsal en BD: {codigo}")
+            
+            # Para admin/asesor, asegurar que perfil_completo sea True
             user_role = user_data.get("rol")
             if user_role in ["admin", "asesor"]:
                 if not user_data.get("perfil_completo", False):
-                    # Marcar como completo en la BD
                     user_service.mark_admin_profile_complete(user_id)
                     user_data["perfil_completo"] = True
-                    logger.info(f"✅ Perfil de {user_role} auto-completado en /me: {user_id}")
+                    logger.info(f"✅ Perfil de {user_role} auto-completado: {user_id}")
             
             # Remover información sensible
             user_data.pop("password_hash", None)
             user_data.pop("session_id", None)
+            
+            # 🔍 VERIFICAR QUE EL CÓDIGO SIGA PRESENTE DESPUÉS DE LA LIMPIEZA
+            logger.info(f"🔍 DEBUG - Código en respuesta final: {user_data.get('codigo_corresponsal')}")
             
             return user_data
             
@@ -245,7 +255,7 @@ def me(user=Depends(get_current_user)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error en me: {e}")
+        logger.error(f"❌ Error en /me: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.post("/complete-profile")

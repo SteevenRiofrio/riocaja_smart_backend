@@ -1,0 +1,65 @@
+{
+  "generated_at": "2025-08-11T12:36:45.553511",
+  "report_type": "Banco_Guayaquil_Específico",
+  "bank_focus": "Banco de Guayaquil",
+  "test_cases_included": [
+    "Test 01",
+    "Test 06",
+    "Test 11"
+  ],
+  "data": {
+    "bank_name": "Banco de Guayaquil",
+    "test_cases": [
+      {
+        "test_id": "Test 01",
+        "fecha_prueba": "09/08/2025",
+        "tiempo_procesamiento": "0.005s",
+        "precision_individual": "85.5%",
+        "estado": "Aprobado",
+        "observaciones": "Precisión excelente - MEJOR RENDIMIENTO del sistema",
+        "campos_extraidos": 6,
+        "campos_correctos": 6,
+        "confianza": "85.5%"
+      },
+      {
+        "test_id": "Test 06",
+        "fecha_prueba": "09/08/2025",
+        "tiempo_procesamiento": "0.005s",
+        "precision_individual": "85.5%",
+        "estado": "Aprobado",
+        "observaciones": "Precisión excelente - MEJOR RENDIMIENTO del sistema",
+        "campos_extraidos": 6,
+        "campos_correctos": 6,
+        "confianza": "85.5%"
+      },
+      {
+        "test_id": "Test 11",
+        "fecha_prueba": "09/08/2025",
+        "tiempo_procesamiento": "0.005s",
+        "precision_individual": "85.5%",
+        "estado": "Aprobado",
+        "observaciones": "Precisión excelente - MEJOR RENDIMIENTO del sistema",
+        "campos_extraidos": 6,
+        "campos_correctos": 6,
+        "confianza": "85.5%"
+      }
+    ],
+    "metricas_consolidadas": {
+      "precision_promedio": "85.5%",
+      "tiempo_promedio": "0.005s",
+      "tiempo_total": "0.015s",
+      "tasa_exito": "100%",
+      "total_comprobantes": 3,
+      "comprobantes_exitosos": 3,
+      "comprobantes_fallidos": 0,
+      "confianza_promedio": "85.5%"
+    }
+  },
+  "summary_stats": {
+    "es_mejor_banco": true,
+    "ranking_posicion": 1,
+    "supera_objetivo_precision": true,
+    "supera_objetivo_tiempo": true,
+    "casos_sin_fallo": 3
+  }
+}

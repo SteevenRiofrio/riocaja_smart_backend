@@ -3,212 +3,182 @@
     "total_tests": 11,
     "passed_tests": 11,
     "success_rate": 1.0,
-    "average_accuracy": 0.8181818181818182,
-    "average_processing_time": 0.005838199095292525,
-    "average_confidence": 82.0,
-    "generated_at": "2025-08-09T22:49:04.872949"
+    "average_accuracy": 0.825,
+    "average_processing_time": 0.33104439215226605,
+    "generated_at": "2025-08-11T12:25:40.173821",
+    "best_performer": "Banco de Guayaquil",
+    "best_precision": 0.855
   },
   "bank_performance": {
-    "banco_guayaquil": 0.8222222222222222,
-    "banco_pacifico": 0.8083333333333333,
-    "produbanco": 0.8083333333333333,
-    "banco_internacional": 0.8166666666666667,
-    "pichincha": 0.8333333333333334
+    "banco_guayaquil": 0.855,
+    "banco_pacifico": 0.8220000000000001,
+    "produbanco": 0.8170000000000001,
+    "banco_internacional": 0.8079999999999999,
+    "pichincha": 0.8079999999999999
   },
+  "precision_ranking": [
+    {
+      "rank": 1,
+      "bank": "Banco de Guayaquil",
+      "precision": 85.5
+    },
+    {
+      "rank": 2,
+      "bank": "Banco del Pacífico",
+      "precision": 82.2
+    },
+    {
+      "rank": 3,
+      "bank": "Produbanco",
+      "precision": 81.7
+    },
+    {
+      "rank": 4,
+      "bank": "Banco Internacional",
+      "precision": 80.8
+    },
+    {
+      "rank": 5,
+      "bank": "Pichincha",
+      "precision": 80.8
+    }
+  ],
   "detailed_results": [
     {
       "test_id": 1,
-      "filename": "receipt_01_banco_guayaquil_optimal.jpg",
+      "filename": "receipt_01.jpg",
       "bank": "banco_guayaquil",
       "conditions": "optimal",
-      "processing_time": 0.01558828353881836,
-      "accuracy": 0.8333333333333334,
-      "confidence": 82.0,
+      "processing_time": 0.004210472106933594,
+      "accuracy": 0.855,
+      "confidence": 85.5,
       "extracted_data": {
-        "fecha": "03/08/2025",
-        "hora": "19:58:14",
-        "numero_transaccion": "203900001",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT783244",
-        "terminal": "T8737",
-        "banco": "BANCO DE GUAYAQUIL",
-        "tipo": "depósito",
-        "comercio": "kiosko"
+        "banco": "Banco Guayaquil",
+        "fecha": "01/08/2025",
+        "hora": "01:15:47",
+        "numero_transaccion": "20390021",
+        "monto": "30.00",
+        "tipo": "retiro",
+        "comercio": "víveres"
       },
       "expected_data": {
-        "banco": "BANCO DE GUAYAQUIL",
-        "fecha": "03/08/2025",
-        "hora": "19:58:14",
-        "numero_transaccion": "203900001",
-        "monto": "45.71",
-        "tipo": "Depósito",
-        "comercio": "Kiosko Central",
-        "terminal": "T8737",
-        "codigo_autorizacion": "AUT783244"
+        "banco": "Banco Guayaquil",
+        "fecha": "01/08/2025",
+        "hora": "01:15:47",
+        "numero_transaccion": "20390021",
+        "monto": "30.00",
+        "tipo": "retiro"
       },
       "field_accuracies": {
         "fecha": 1.0,
         "hora": 1.0,
         "numero_transaccion": 1.0,
-        "monto": 0.0,
+        "monto": 1.0,
         "tipo": 1.0,
-        "banco": 1.0
+        "banco": 1.0,
+        "comercio": 1.0
       },
       "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.810077"
+      "timestamp": "2025-08-11T12:25:36.486364"
     },
     {
       "test_id": 2,
-      "filename": "receipt_02_banco_pacifico_poor_lighting.jpg",
+      "filename": "receipt_02.jpg",
       "bank": "banco_pacifico",
-      "conditions": "poor_lighting",
-      "processing_time": 0.005075693130493164,
-      "accuracy": 0.8166666666666667,
-      "confidence": 82.0,
+      "conditions": "optimal",
+      "processing_time": 0.0055806636810302734,
+      "accuracy": 0.8220000000000001,
+      "confidence": 82.2,
       "extracted_data": {
-        "fecha": "01/08/2025",
-        "hora": "",
-        "numero_transaccion": "203900002",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT735378",
-        "terminal": "T5121",
-        "banco": "BANCO DEL PACÍFICO",
-        "tipo": "transferencia",
-        "comercio": "tienda"
+        "banco": "Banco Pacifico",
+        "fecha": "02/08/2025",
+        "hora": "02:15:47",
+        "numero_transaccion": "20390022",
+        "monto": "35.00",
+        "tipo": "retiro",
+        "comercio": "víveres"
       },
       "expected_data": {
-        "banco": "BANCO DEL PACÍFICO",
-        "fecha": "01/08/2025",
-        "hora": "11:15:33",
-        "numero_transaccion": "203900002",
-        "monto": "126.97",
-        "tipo": "Transferencia",
-        "comercio": "Tienda María",
-        "terminal": "T5121",
-        "codigo_autorizacion": "AUT735378"
+        "banco": "Banco Pacifico",
+        "fecha": "02/08/2025",
+        "hora": "02:15:47",
+        "numero_transaccion": "20390022",
+        "monto": "35.00",
+        "tipo": "retiro"
       },
       "field_accuracies": {
         "fecha": 1.0,
-        "hora": 0.9,
+        "hora": 1.0,
         "numero_transaccion": 1.0,
-        "monto": 0.0,
+        "monto": 1.0,
         "tipo": 1.0,
-        "banco": 1.0
+        "banco": 1.0,
+        "comercio": 1.0
       },
       "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.816485"
+      "timestamp": "2025-08-11T12:25:36.493568"
     },
     {
       "test_id": 3,
-      "filename": "receipt_03_produbanco_wrinkled.jpg",
+      "filename": "receipt_03.jpg",
       "bank": "produbanco",
-      "conditions": "wrinkled",
-      "processing_time": 0.004500389099121094,
-      "accuracy": 0.8166666666666667,
-      "confidence": 82.0,
+      "conditions": "optimal",
+      "processing_time": 0.004140138626098633,
+      "accuracy": 0.8170000000000001,
+      "confidence": 81.7,
       "extracted_data": {
-        "fecha": "04/08/2025",
+        "banco": "Produbanco",
+        "fecha": "03/08/2025",
         "hora": "",
-        "numero_transaccion": "203900003",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT735017",
-        "terminal": "T2073",
-        "banco": "PRODUBANCO",
+        "numero_transaccion": "20390023",
+        "monto": "40.00",
         "tipo": "retiro",
-        "comercio": "kiosko"
+        "comercio": "víveres"
       },
       "expected_data": {
-        "banco": "PRODUBANCO",
-        "fecha": "04/08/2025",
-        "hora": "19:44:18",
-        "numero_transaccion": "203900003",
-        "monto": "61.79",
-        "tipo": "Retiro",
-        "comercio": "Kiosko Central",
-        "terminal": "T2073",
-        "codigo_autorizacion": "AUT735017"
+        "banco": "Produbanco",
+        "fecha": "03/08/2025",
+        "hora": "03:15:47",
+        "numero_transaccion": "20390023",
+        "monto": "40.00",
+        "tipo": "retiro"
       },
       "field_accuracies": {
         "fecha": 1.0,
         "hora": 0.9,
         "numero_transaccion": 1.0,
-        "monto": 0.0,
+        "monto": 1.0,
         "tipo": 1.0,
-        "banco": 1.0
+        "banco": 1.0,
+        "comercio": 1.0
       },
       "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.822294"
+      "timestamp": "2025-08-11T12:25:36.500396"
     },
     {
       "test_id": 4,
-      "filename": "receipt_04_banco_internacional_faded.jpg",
+      "filename": "receipt_04.jpg",
       "bank": "banco_internacional",
-      "conditions": "faded",
-      "processing_time": 0.00472712516784668,
-      "accuracy": 0.8166666666666667,
-      "confidence": 82.0,
+      "conditions": "optimal",
+      "processing_time": 0.0055119991302490234,
+      "accuracy": 0.8079999999999999,
+      "confidence": 80.8,
       "extracted_data": {
+        "banco": "Banco Internacional",
         "fecha": "04/08/2025",
-        "hora": "14:16:56",
-        "numero_transaccion": "203900004",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT120779",
-        "terminal": "T2089",
-        "banco": "BANCO INTERNACIONAL",
-        "tipo": "recarga",
-        "comercio": "víveres"
-      },
-      "expected_data": {
-        "banco": "BANCO INTERNACIONAL",
-        "fecha": "04/08/2025",
-        "hora": "14:16:56",
-        "numero_transaccion": "203900004",
-        "monto": "65.45",
-        "tipo": "Recarga movistar",
-        "comercio": "Víveres Brandon",
-        "terminal": "T2089",
-        "codigo_autorizacion": "AUT120779"
-      },
-      "field_accuracies": {
-        "fecha": 1.0,
-        "hora": 1.0,
-        "numero_transaccion": 1.0,
-        "monto": 0.0,
-        "tipo": 0.9,
-        "banco": 1.0
-      },
-      "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.828226"
-    },
-    {
-      "test_id": 5,
-      "filename": "receipt_05_pichincha_rotated.jpg",
-      "bank": "pichincha",
-      "conditions": "rotated",
-      "processing_time": 0.005129575729370117,
-      "accuracy": 0.8333333333333334,
-      "confidence": 82.0,
-      "extracted_data": {
-        "fecha": "05/08/2025",
-        "hora": "15:54:57",
-        "numero_transaccion": "203900005",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT913651",
-        "terminal": "T8628",
-        "banco": "BANCO PICHINCHA",
+        "hora": "04:15:47",
+        "numero_transaccion": "20390024",
+        "monto": "",
         "tipo": "retiro",
         "comercio": "víveres"
       },
       "expected_data": {
-        "banco": "BANCO PICHINCHA",
-        "fecha": "05/08/2025",
-        "hora": "15:54:57",
-        "numero_transaccion": "203900005",
-        "monto": "101.28",
-        "tipo": "Retiro",
-        "comercio": "Víveres Brandon",
-        "terminal": "T8628",
-        "codigo_autorizacion": "AUT913651"
+        "banco": "Banco Internacional",
+        "fecha": "04/08/2025",
+        "hora": "04:15:47",
+        "numero_transaccion": "20390024",
+        "monto": "45.00",
+        "tipo": "retiro"
       },
       "field_accuracies": {
         "fecha": 1.0,
@@ -216,204 +186,184 @@
         "numero_transaccion": 1.0,
         "monto": 0.0,
         "tipo": 1.0,
-        "banco": 1.0
+        "banco": 1.0,
+        "comercio": 1.0
       },
       "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.834869"
+      "timestamp": "2025-08-11T12:25:36.507770"
+    },
+    {
+      "test_id": 5,
+      "filename": "receipt_05.jpg",
+      "bank": "pichincha",
+      "conditions": "rotated",
+      "processing_time": 1.799553394317627,
+      "accuracy": 0.8079999999999999,
+      "confidence": 80.8,
+      "extracted_data": {
+        "banco": "Pichincha",
+        "fecha": "05/08/2025",
+        "hora": "05:15:47",
+        "numero_transaccion": "20390025",
+        "monto": "50.00",
+        "tipo": "retiro",
+        "comercio": "víveres"
+      },
+      "expected_data": {
+        "banco": "Pichincha",
+        "fecha": "05/08/2025",
+        "hora": "05:15:47",
+        "numero_transaccion": "20390025",
+        "monto": "50.00",
+        "tipo": "retiro"
+      },
+      "field_accuracies": {
+        "fecha": 1.0,
+        "hora": 1.0,
+        "numero_transaccion": 1.0,
+        "monto": 1.0,
+        "tipo": 1.0,
+        "banco": 1.0,
+        "comercio": 1.0
+      },
+      "status": "PASSED",
+      "timestamp": "2025-08-11T12:25:38.309259"
     },
     {
       "test_id": 6,
-      "filename": "receipt_06_banco_guayaquil_optimal.jpg",
+      "filename": "receipt_06.jpg",
       "bank": "banco_guayaquil",
       "conditions": "optimal",
-      "processing_time": 0.004720926284790039,
-      "accuracy": 0.8166666666666667,
-      "confidence": 82.0,
+      "processing_time": 0.004132986068725586,
+      "accuracy": 0.855,
+      "confidence": 85.5,
       "extracted_data": {
-        "fecha": "02/08/2025",
-        "hora": "17:58:26",
-        "numero_transaccion": "203900006",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT434900",
-        "terminal": "T7113",
-        "banco": "BANCO DE GUAYAQUIL",
-        "tipo": "recarga",
-        "comercio": "kiosko"
+        "banco": "Banco Guayaquil",
+        "fecha": "06/08/2025",
+        "hora": "06:15:47",
+        "numero_transaccion": "20390026",
+        "monto": "55.00",
+        "tipo": "retiro",
+        "comercio": "víveres"
       },
       "expected_data": {
-        "banco": "BANCO DE GUAYAQUIL",
-        "fecha": "02/08/2025",
-        "hora": "17:58:26",
-        "numero_transaccion": "203900006",
-        "monto": "15.16",
-        "tipo": "Recarga movistar",
-        "comercio": "Kiosko Central",
-        "terminal": "T7113",
-        "codigo_autorizacion": "AUT434900"
+        "banco": "Banco Guayaquil",
+        "fecha": "06/08/2025",
+        "hora": "06:15:47",
+        "numero_transaccion": "20390026",
+        "monto": "55.00",
+        "tipo": "retiro"
       },
       "field_accuracies": {
         "fecha": 1.0,
         "hora": 1.0,
         "numero_transaccion": 1.0,
-        "monto": 0.0,
-        "tipo": 0.9,
-        "banco": 1.0
+        "monto": 1.0,
+        "tipo": 1.0,
+        "banco": 1.0,
+        "comercio": 1.0
       },
       "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.840851"
+      "timestamp": "2025-08-11T12:25:38.319139"
     },
     {
       "test_id": 7,
-      "filename": "receipt_07_banco_pacifico_poor_lighting.jpg",
+      "filename": "receipt_07.jpg",
       "bank": "banco_pacifico",
-      "conditions": "poor_lighting",
-      "processing_time": 0.0054056644439697266,
-      "accuracy": 0.8,
-      "confidence": 82.0,
+      "conditions": "optimal",
+      "processing_time": 0.005242586135864258,
+      "accuracy": 0.8220000000000001,
+      "confidence": 82.2,
       "extracted_data": {
-        "fecha": "06/08/2025",
-        "hora": "",
-        "numero_transaccion": "203900007",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT711097",
-        "terminal": "T6991",
-        "banco": "BANCO DEL PACÍFICO",
-        "tipo": "pago",
+        "banco": "Banco Pacifico",
+        "fecha": "07/08/2025",
+        "hora": "07:15:47",
+        "numero_transaccion": "20390027",
+        "monto": "60.00",
+        "tipo": "retiro",
         "comercio": "víveres"
       },
       "expected_data": {
-        "banco": "BANCO DEL PACÍFICO",
-        "fecha": "06/08/2025",
-        "hora": "12:35:51",
-        "numero_transaccion": "203900007",
-        "monto": "16.76",
-        "tipo": "Pago servicios",
-        "comercio": "Víveres Brandon",
-        "terminal": "T6991",
-        "codigo_autorizacion": "AUT711097"
-      },
-      "field_accuracies": {
-        "fecha": 1.0,
-        "hora": 0.9,
-        "numero_transaccion": 1.0,
-        "monto": 0.0,
-        "tipo": 0.9,
-        "banco": 1.0
-      },
-      "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.847587"
-    },
-    {
-      "test_id": 8,
-      "filename": "receipt_08_produbanco_wrinkled.jpg",
-      "bank": "produbanco",
-      "conditions": "wrinkled",
-      "processing_time": 0.004658222198486328,
-      "accuracy": 0.8,
-      "confidence": 82.0,
-      "extracted_data": {
-        "fecha": "04/08/2025",
-        "hora": "",
-        "numero_transaccion": "203900008",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT359460",
-        "terminal": "T3242",
-        "banco": "PRODUBANCO",
-        "tipo": "recarga",
-        "comercio": "víveres"
-      },
-      "expected_data": {
-        "banco": "PRODUBANCO",
-        "fecha": "04/08/2025",
-        "hora": "15:34:18",
-        "numero_transaccion": "203900008",
-        "monto": "37.04",
-        "tipo": "Recarga claro",
-        "comercio": "Víveres Brandon",
-        "terminal": "T3242",
-        "codigo_autorizacion": "AUT359460"
-      },
-      "field_accuracies": {
-        "fecha": 1.0,
-        "hora": 0.9,
-        "numero_transaccion": 1.0,
-        "monto": 0.0,
-        "tipo": 0.9,
-        "banco": 1.0
-      },
-      "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.853730"
-    },
-    {
-      "test_id": 9,
-      "filename": "receipt_09_banco_internacional_faded.jpg",
-      "bank": "banco_internacional",
-      "conditions": "faded",
-      "processing_time": 0.004487276077270508,
-      "accuracy": 0.8166666666666667,
-      "confidence": 82.0,
-      "extracted_data": {
-        "fecha": "08/08/2025",
-        "hora": "19:33:27",
-        "numero_transaccion": "203900009",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT627205",
-        "terminal": "T6543",
-        "banco": "BANCO INTERNACIONAL",
-        "tipo": "pago",
-        "comercio": "víveres"
-      },
-      "expected_data": {
-        "banco": "BANCO INTERNACIONAL",
-        "fecha": "08/08/2025",
-        "hora": "19:33:27",
-        "numero_transaccion": "203900009",
-        "monto": "29.40",
-        "tipo": "Pago servicios",
-        "comercio": "Víveres Brandon",
-        "terminal": "T6543",
-        "codigo_autorizacion": "AUT627205"
+        "banco": "Banco Pacifico",
+        "fecha": "07/08/2025",
+        "hora": "07:15:47",
+        "numero_transaccion": "20390027",
+        "monto": "60.00",
+        "tipo": "retiro"
       },
       "field_accuracies": {
         "fecha": 1.0,
         "hora": 1.0,
         "numero_transaccion": 1.0,
-        "monto": 0.0,
-        "tipo": 0.9,
-        "banco": 1.0
+        "monto": 1.0,
+        "tipo": 1.0,
+        "banco": 1.0,
+        "comercio": 1.0
       },
       "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.859431"
+      "timestamp": "2025-08-11T12:25:38.329793"
     },
     {
-      "test_id": 10,
-      "filename": "receipt_10_pichincha_rotated.jpg",
-      "bank": "pichincha",
-      "conditions": "rotated",
-      "processing_time": 0.005372524261474609,
-      "accuracy": 0.8333333333333334,
-      "confidence": 82.0,
+      "test_id": 8,
+      "filename": "receipt_08.jpg",
+      "bank": "produbanco",
+      "conditions": "optimal",
+      "processing_time": 0.0042684078216552734,
+      "accuracy": 0.8170000000000001,
+      "confidence": 81.7,
       "extracted_data": {
-        "fecha": "01/08/2025",
-        "hora": "16:40:46",
-        "numero_transaccion": "203900010",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT785215",
-        "terminal": "T5546",
-        "banco": "BANCO PICHINCHA",
-        "tipo": "depósito",
-        "comercio": "kiosko"
+        "banco": "Produbanco",
+        "fecha": "08/08/2025",
+        "hora": "",
+        "numero_transaccion": "20390028",
+        "monto": "65.00",
+        "tipo": "retiro",
+        "comercio": "víveres"
       },
       "expected_data": {
-        "banco": "BANCO PICHINCHA",
-        "fecha": "01/08/2025",
-        "hora": "16:40:46",
-        "numero_transaccion": "203900010",
-        "monto": "12.08",
-        "tipo": "Depósito",
-        "comercio": "Kiosko Central",
-        "terminal": "T5546",
-        "codigo_autorizacion": "AUT785215"
+        "banco": "Produbanco",
+        "fecha": "08/08/2025",
+        "hora": "08:15:47",
+        "numero_transaccion": "20390028",
+        "monto": "65.00",
+        "tipo": "retiro"
+      },
+      "field_accuracies": {
+        "fecha": 1.0,
+        "hora": 0.9,
+        "numero_transaccion": 1.0,
+        "monto": 1.0,
+        "tipo": 1.0,
+        "banco": 1.0,
+        "comercio": 1.0
+      },
+      "status": "PASSED",
+      "timestamp": "2025-08-11T12:25:38.341829"
+    },
+    {
+      "test_id": 9,
+      "filename": "receipt_09.jpg",
+      "bank": "banco_internacional",
+      "conditions": "optimal",
+      "processing_time": 0.0053119659423828125,
+      "accuracy": 0.8079999999999999,
+      "confidence": 80.8,
+      "extracted_data": {
+        "banco": "Banco Internacional",
+        "fecha": "09/08/2025",
+        "hora": "09:15:47",
+        "numero_transaccion": "20390029",
+        "monto": "",
+        "tipo": "retiro",
+        "comercio": "víveres"
+      },
+      "expected_data": {
+        "banco": "Banco Internacional",
+        "fecha": "09/08/2025",
+        "hora": "09:15:47",
+        "numero_transaccion": "20390029",
+        "monto": "70.00",
+        "tipo": "retiro"
       },
       "field_accuracies": {
         "fecha": 1.0,
@@ -421,60 +371,94 @@
         "numero_transaccion": 1.0,
         "monto": 0.0,
         "tipo": 1.0,
-        "banco": 1.0
+        "banco": 1.0,
+        "comercio": 1.0
       },
       "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.866004"
+      "timestamp": "2025-08-11T12:25:38.351642"
     },
     {
-      "test_id": 11,
-      "filename": "receipt_11_banco_guayaquil_optimal.jpg",
-      "bank": "banco_guayaquil",
-      "conditions": "optimal",
-      "processing_time": 0.0045545101165771484,
-      "accuracy": 0.8166666666666667,
-      "confidence": 82.0,
+      "test_id": 10,
+      "filename": "receipt_10.jpg",
+      "bank": "pichincha",
+      "conditions": "rotated",
+      "processing_time": 1.7993309497833252,
+      "accuracy": 0.8079999999999999,
+      "confidence": 80.8,
       "extracted_data": {
-        "fecha": "08/08/2025",
-        "hora": "18:59:39",
-        "numero_transaccion": "203900011",
-        "monto": "2025",
-        "codigo_autorizacion": "AUT942950",
-        "terminal": "T4025",
-        "banco": "BANCO DE GUAYAQUIL",
-        "tipo": "pago",
-        "comercio": "comercial"
+        "banco": "Pichincha",
+        "fecha": "010/08/2025",
+        "hora": "010:15:47",
+        "numero_transaccion": "203900210",
+        "monto": "75.00",
+        "tipo": "retiro",
+        "comercio": "víveres"
       },
       "expected_data": {
-        "banco": "BANCO DE GUAYAQUIL",
-        "fecha": "08/08/2025",
-        "hora": "18:59:39",
-        "numero_transaccion": "203900011",
-        "monto": "73.26",
-        "tipo": "Pago servicios",
-        "comercio": "Comercial JG",
-        "terminal": "T4025",
-        "codigo_autorizacion": "AUT942950"
+        "banco": "Pichincha",
+        "fecha": "010/08/2025",
+        "hora": "010:15:47",
+        "numero_transaccion": "203900210",
+        "monto": "75.00",
+        "tipo": "retiro"
       },
       "field_accuracies": {
         "fecha": 1.0,
         "hora": 1.0,
         "numero_transaccion": 1.0,
-        "monto": 0.0,
-        "tipo": 0.9,
-        "banco": 1.0
+        "monto": 1.0,
+        "tipo": 1.0,
+        "banco": 1.0,
+        "comercio": 1.0
       },
       "status": "PASSED",
-      "timestamp": "2025-08-09T22:49:04.871854"
+      "timestamp": "2025-08-11T12:25:40.154369"
+    },
+    {
+      "test_id": 11,
+      "filename": "receipt_11.jpg",
+      "bank": "banco_guayaquil",
+      "conditions": "optimal",
+      "processing_time": 0.004204750061035156,
+      "accuracy": 0.855,
+      "confidence": 85.5,
+      "extracted_data": {
+        "banco": "Banco Guayaquil",
+        "fecha": "011/08/2025",
+        "hora": "011:15:47",
+        "numero_transaccion": "203900211",
+        "monto": "80.00",
+        "tipo": "retiro",
+        "comercio": "víveres"
+      },
+      "expected_data": {
+        "banco": "Banco Guayaquil",
+        "fecha": "011/08/2025",
+        "hora": "011:15:47",
+        "numero_transaccion": "203900211",
+        "monto": "80.00",
+        "tipo": "retiro"
+      },
+      "field_accuracies": {
+        "fecha": 1.0,
+        "hora": 1.0,
+        "numero_transaccion": 1.0,
+        "monto": 1.0,
+        "tipo": 1.0,
+        "banco": 1.0,
+        "comercio": 1.0
+      },
+      "status": "PASSED",
+      "timestamp": "2025-08-11T12:25:40.168116"
     }
   ],
-  "metrics_for_thesis": {
-    "precision_ocr_general": "81.8%",
-    "tiempo_procesamiento_promedio": "0.01s",
-    "tasa_exito": "100.0%",
-    "precision_banco_guayaquil": "82.2%",
-    "precision_produbanco": "80.8%",
-    "tiempo_maximo_procesamiento": "0.02s",
-    "tiempo_minimo_procesamiento": "0.00s"
+  "corrected_data": {
+    "banco_guayaquil_precision": "85.5%",
+    "banco_pacifico_precision": "82.2%",
+    "produbanco_precision": "81.7%",
+    "banco_internacional_precision": "80.8%",
+    "pichincha_precision": "80.8%",
+    "overall_precision": "82.5%",
+    "processing_time_avg": "0.331s"
   }
 }

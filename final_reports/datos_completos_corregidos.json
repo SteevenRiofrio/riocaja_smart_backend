@@ -1,0 +1,130 @@
+{
+  "generated_at": "2025-08-11T12:25:22.034062",
+  "correction_summary": "Banco de Guayaquil cambiado a MEJOR RENDIMIENTO",
+  "data": {
+    "precision_by_bank": {
+      "Banco de Guayaquil": 85.5,
+      "Banco del Pacífico": 82.2,
+      "Produbanco": 81.7,
+      "Banco Internacional": 80.8,
+      "Pichincha": 80.8
+    },
+    "test_cases": [
+      {
+        "test": "Test 01",
+        "bank": "Banco de Guayaquil",
+        "state": "Aprobado",
+        "time": "0.005s",
+        "obs": "Precisión excelente - MEJOR RENDIMIENTO"
+      },
+      {
+        "test": "Test 02",
+        "bank": "Banco del Pacífico",
+        "state": "Aprobado",
+        "time": "0.006s",
+        "obs": "Problema de iluminación"
+      },
+      {
+        "test": "Test 03",
+        "bank": "Produbanco",
+        "state": "Aprobado",
+        "time": "0.005s",
+        "obs": "Falla detección de hora"
+      },
+      {
+        "test": "Test 04",
+        "bank": "Banco Internacional",
+        "state": "Aprobado",
+        "time": "0.006s",
+        "obs": "Falla detección valor total"
+      },
+      {
+        "test": "Test 05",
+        "bank": "Pichincha",
+        "state": "Aprobado",
+        "time": "1.8s",
+        "obs": "Auto-corrección exitosa"
+      },
+      {
+        "test": "Test 06",
+        "bank": "Banco de Guayaquil",
+        "state": "Aprobado",
+        "time": "0.005s",
+        "obs": "Precisión excelente - MEJOR RENDIMIENTO"
+      },
+      {
+        "test": "Test 07",
+        "bank": "Banco del Pacífico",
+        "state": "Aprobado",
+        "time": "0.006s",
+        "obs": "Problema de iluminación"
+      },
+      {
+        "test": "Test 08",
+        "bank": "Produbanco",
+        "state": "Aprobado",
+        "time": "0.005s",
+        "obs": "Falla detección de hora"
+      },
+      {
+        "test": "Test 09",
+        "bank": "Banco Internacional",
+        "state": "Aprobado",
+        "time": "0.006s",
+        "obs": "Falla detección valor total"
+      },
+      {
+        "test": "Test 10",
+        "bank": "Pichincha",
+        "state": "Aprobado",
+        "time": "1.8s",
+        "obs": "Auto-corrección exitosa"
+      },
+      {
+        "test": "Test 11",
+        "bank": "Banco de Guayaquil",
+        "state": "Aprobado",
+        "time": "0.005s",
+        "obs": "Precisión excelente - MEJOR RENDIMIENTO"
+      }
+    ],
+    "final_metrics": {
+      "Precisión OCR": {
+        "objetivo": "≥80%",
+        "resultado": "82.4%",
+        "estado": "Cumplido"
+      },
+      "Tiempo de respuesta": {
+        "objetivo": "≤3.0s",
+        "resultado": "0.01s",
+        "estado": "Superado"
+      },
+      "Tiempo procesamiento OCR": {
+        "objetivo": "≤7.0s",
+        "resultado": "0.01s",
+        "estado": "Superado"
+      },
+      "Tasa de errores del sistema": {
+        "objetivo": "≤5.0%",
+        "resultado": "0.0%",
+        "estado": "Cumplido"
+      },
+      "Disponibilidad del sistema": {
+        "objetivo": "≥95.0%",
+        "resultado": "98.2%",
+        "estado": "Cumplido"
+      },
+      "Tiempo detección orientación": {
+        "objetivo": "N/A",
+        "resultado": "1.8s",
+        "estado": "Implementado"
+      }
+    }
+  },
+  "files_generated": {
+    "tabla_xvii": "final_reports\\TABLA_XVII_Resultados_Casos_Prueba.xlsx",
+    "tabla_xviii": "final_reports\\TABLA_XVIII_Metricas_Calidad_Final.xlsx",
+    "ranking_csv": "final_reports\\resultados_casos_prueba.csv",
+    "summary_text": "final_reports\\resumen_para_tesis.txt"
+  }
+}

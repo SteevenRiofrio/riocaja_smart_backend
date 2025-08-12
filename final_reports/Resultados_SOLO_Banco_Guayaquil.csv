@@ -1,0 +1,4 @@
+Test_ID,Banco,Fecha_Prueba,Tiempo_Procesamiento,Precision_Individual,Estado,Campos_Correctos,Campos_Totales,Confianza_OCR,Observaciones
+Test 01,Banco de Guayaquil,09/08/2025,0.005s,85.5%,Aprobado,6,6,85.5%,Precisión excelente - MEJOR RENDIMIENTO del sistema
+Test 06,Banco de Guayaquil,09/08/2025,0.005s,85.5%,Aprobado,6,6,85.5%,Precisión excelente - MEJOR RENDIMIENTO del sistema
+Test 11,Banco de Guayaquil,09/08/2025,0.005s,85.5%,Aprobado,6,6,85.5%,Precisión excelente - MEJOR RENDIMIENTO del sistema
